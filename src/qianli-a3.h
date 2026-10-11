@@ -1,14 +1,13 @@
 #pragma once
 
 #include <glib-object.h>
-#include "device-protocol.h"
 
 G_BEGIN_DECLS
 
 #define USB_TESTER_MONITOR_TYPE_QIANLI_A3 (usb_tester_monitor_qianli_a3_get_type())
 
 G_DECLARE_FINAL_TYPE (UsbTesterMonitorQianliA3, usb_tester_monitor_qianli_a3,
-                      USB_TESTER_MONITOR, QIANLI_A3, UsbTesterMonitorDeviceProtocol)
+                      USB_TESTER_MONITOR, QIANLI_A3, GObject)
 
 /* Qianli iBridge A3 protocol constants */
 #define QIANLI_A3_MAGIC_BYTE 0xDA

@@ -44,6 +44,4 @@ void usb_tester_monitor_device_manager_connect_device (UsbTesterMonitorDeviceMan
 void usb_tester_monitor_device_manager_disconnect_device (UsbTesterMonitorDeviceManager *self,
                                                            const gchar *identifier);
 
-UsbTesterMonitorDeviceProtocol *usb_tester_monitor_device_manager_get_active_protocol (UsbTesterMonitorDeviceManager *self);
-
 G_END_DECLS

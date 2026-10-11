@@ -42,56 +42,6 @@ struct _UsbTesterMonitorMainWindow {
 G_DEFINE_FINAL_TYPE (UsbTesterMonitorMainWindow, usb_tester_monitor_main_window, ADW_TYPE_APPLICATION_WINDOW)
 
 static void
-on_data_received (UsbTesterMonitorDeviceProtocol *protocol,
-                  UsbTesterMonitorReading *reading,
-                  gpointer user_data)
-{
-    UsbTesterMonitorMainWindow *self = USB_TESTER_MONITOR_MAIN_WINDOW (user_data);
-    
-    /* Update current readings */
-    self->current_voltage = reading->voltage;
-    self->current_current = reading->current;
-    self->current_power = reading->power;
-    
-    /* Update min/max */
-    if (self->min_voltage == 0 || reading->voltage < self->min_voltage) {
-        self->min_voltage = reading->voltage;
-    }
-    if (reading->voltage > self->max_voltage) {
-        self->max_voltage = reading->voltage;
-    }
-    
-    if (self->min_current == 0 || reading->current < self->min_current) {
-        self->min_current = reading->current;
-    }
-    if (reading->current > self->max_current) {
-        self->max_current = reading->current;
-    }
-    
-    /* Update display */
-    usb_tester_monitor_data_display_set_voltage (self->data_display, reading->voltage);
-    usb_tester_monitor_data_display_set_current (self->data_display, reading->current);
-    usb_tester_monitor_data_display_set_power (self->data_display, reading->power);
-    
-    usb_tester_monitor_data_display_set_min_max_voltage (self->data_display,
-                                                          self->min_voltage,
-                                                          self->max_voltage);
-    usb_tester_monitor_data_display_set_min_max_current (self->data_display,
-                                                          self->min_current,
-                                                          self->max_current);
-    
-    /* Update chart */
-    usb_tester_monitor_chart_view_add_voltage_reading (self->chart_view, reading->voltage);
-    usb_tester_monitor_chart_view_add_current_reading (self->chart_view, reading->current);
-    
-    /* Update status */
-    gchar *status = g_strdup_printf ("Connected | %.3f V | %.3f A | %.3f W",
-                                     reading->voltage, reading->current, reading->power);
-    usb_tester_monitor_data_display_set_device_status (self->data_display, status);
-    g_free (status);
-}
-
-static void
 on_connect_button_toggled (GtkToggleButton *button,
                            gpointer user_data)
 {
@@ -106,27 +56,11 @@ on_connect_button_toggled (GtkToggleButton *button,
             usb_tester_monitor_device_manager_connect_device (self->device_manager,
                                                              device->identifier);
             
-            /* Get the active protocol */
-            UsbTesterMonitorDeviceProtocol *protocol = 
-                usb_tester_monitor_device_manager_get_active_protocol (self->device_manager);
-            
-            if (protocol) {
-                /* Set up data callback */
-                usb_tester_monitor_device_protocol_set_data_callback (
-                    protocol, on_data_received, self, NULL
-                );
-                
-                /* Start streaming */
-                usb_tester_monitor_device_protocol_start_streaming (protocol);
-                
-                self->is_connected = TRUE;
-                self->is_streaming = TRUE;
-                
-                /* Update UI */
-                gtk_label_set_text (self->device_label, device->identifier);
-                usb_tester_monitor_data_display_set_device_status (self->data_display,
+            gtk_label_set_text (self->device_label, device->identifier);
+            usb_tester_monitor_data_display_set_device_status (self->data_display,
                                                                     "Connected");
-            }
+            
+            self->is_connected = TRUE;
         }
     } else {
         /* Disconnect */
@@ -139,7 +73,6 @@ on_connect_button_toggled (GtkToggleButton *button,
         }
         
         self->is_connected = FALSE;
-        self->is_streaming = FALSE;
         
         /* Reset display */
         usb_tester_monitor_data_display_set_voltage (self->data_display, 0.0);
@@ -211,16 +144,6 @@ static void
 usb_tester_monitor_main_window_dispose (GObject *object)
 {
     UsbTesterMonitorMainWindow *self = USB_TESTER_MONITOR_MAIN_WINDOW (object);
-    
-    /* Disconnect device if connected */
-    if (self->is_connected) {
-        GListModel *devices = usb_tester_monitor_device_manager_get_devices (self->device_manager);
-        if (g_list_model_get_n_items (devices) > 0) {
-            UsbTesterMonitorDevice *device = g_list_model_get_item (devices, 0);
-            usb_tester_monitor_device_manager_disconnect_device (self->device_manager,
-                                                                 device->identifier);
-        }
-    }
     
     if (self->device_manager) {
         g_object_unref (self->device_manager);

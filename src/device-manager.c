@@ -1,6 +1,5 @@
 #include "device-manager.h"
 #include "device-protocol.h"
-#include "qianli-a3.h"
 #include <glib.h>
 #include <gio/gio.h>
 #include <string.h>
@@ -12,7 +11,7 @@ struct _UsbTesterMonitorDeviceManager {
     GListStore *devices;
     
     /* Currently connected device */
-    UsbTesterMonitorDeviceProtocol *active_protocol;
+    gpointer active_protocol;
     
     /* Device scanning */
     GList *serial_ports;
@@ -35,11 +34,6 @@ usb_tester_monitor_device_manager_finalize (GObject *object)
     
     if (self->devices) {
         g_object_unref (self->devices);
-    }
-    
-    if (self->active_protocol) {
-        usb_tester_monitor_device_protocol_disconnect (self->active_protocol);
-        g_object_unref (self->active_protocol);
     }
     
     g_list_free_full (self->serial_ports, g_free);
@@ -119,27 +113,6 @@ usb_tester_monitor_device_manager_connect_device (UsbTesterMonitorDeviceManager 
     g_return_if_fail (USB_TESTER_MONITOR_IS_DEVICE_MANAGER (self));
     g_return_if_fail (identifier != NULL);
     
-    /* Disconnect current device if connected */
-    if (self->active_protocol) {
-        usb_tester_monitor_device_protocol_disconnect (self->active_protocol);
-        g_object_unref (self->active_protocol);
-        self->active_protocol = NULL;
-    }
-    
-    /* Create appropriate protocol for the device */
-    /* For now, assume all devices are Qianli A3 */
-    self->active_protocol = usb_tester_monitor_device_protocol_new (identifier, 115200);
-    
-    /* Try to connect */
-    GError *error = NULL;
-    if (!usb_tester_monitor_device_protocol_connect (self->active_protocol, &error)) {
-        g_warning ("Failed to connect to device %s: %s", identifier, error->message);
-        g_error_free (error);
-        g_object_unref (self->active_protocol);
-        self->active_protocol = NULL;
-        return;
-    }
-    
     /* Update device state */
     for (guint i = 0; i < g_list_model_get_n_items (G_LIST_MODEL (self->devices)); i++) {
         UsbTesterMonitorDevice *device = g_list_model_get_item (G_LIST_MODEL (self->devices), i);
@@ -155,21 +128,6 @@ usb_tester_monitor_device_manager_disconnect_device (UsbTesterMonitorDeviceManag
 {
     g_return_if_fail (USB_TESTER_MONITOR_IS_DEVICE_MANAGER (self));
     
-    if (!self->active_protocol) {
-        return;
-    }
-    
-    /* Stop streaming if active */
-    if (usb_tester_monitor_device_protocol_get_state (self->active_protocol) == 
-        USB_TESTER_MONITOR_PROTOCOL_STATE_STREAMING) {
-        usb_tester_monitor_device_protocol_stop_streaming (self->active_protocol);
-    }
-    
-    /* Disconnect */
-    usb_tester_monitor_device_protocol_disconnect (self->active_protocol);
-    g_object_unref (self->active_protocol);
-    self->active_protocol = NULL;
-    
     /* Update device state */
     for (guint i = 0; i < g_list_model_get_n_items (G_LIST_MODEL (self->devices)); i++) {
         UsbTesterMonitorDevice *device = g_list_model_get_item (G_LIST_MODEL (self->devices), i);
@@ -177,13 +135,4 @@ usb_tester_monitor_device_manager_disconnect_device (UsbTesterMonitorDeviceManag
             device->state = USB_TESTER_MONITOR_DEVICE_STATE_DISCONNECTED;
         }
     }
-}
-
-/* Get the active protocol */
-UsbTesterMonitorDeviceProtocol *
-usb_tester_monitor_device_manager_get_active_protocol (UsbTesterMonitorDeviceManager *self)
-{
-    g_return_val_if_fail (USB_TESTER_MONITOR_IS_DEVICE_MANAGER (self), NULL);
-    
-    return self->active_protocol;
 }
