@@ -262,7 +262,7 @@ write_recording_csv (UsbTesterMonitorMainWindow *self,
                      GFile *file,
                      GError **error)
 {
-    GString *csv = g_string_new ("time_s");
+    GString *csv = g_string_new ("timestamp_ms");
 
     if (self->recording_channels & REC_VOLTAGE) g_string_append (csv, ",voltage_V");
     if (self->recording_channels & REC_CURRENT) g_string_append (csv, ",current_A");
@@ -271,15 +271,10 @@ write_recording_csv (UsbTesterMonitorMainWindow *self,
     if (self->recording_channels & REC_BATTERY) g_string_append (csv, ",battery_pct");
     g_string_append (csv, "\n");
 
-    guint64 t0 = self->recording_samples->len > 0
-        ? g_array_index (self->recording_samples, RecordSample, 0).timestamp_us
-        : 0;
-
     for (guint i = 0; i < self->recording_samples->len; i++) {
         RecordSample s = g_array_index (self->recording_samples, RecordSample, i);
 
-        g_string_append_printf (csv, "%.3f",
-                                (gdouble) (s.timestamp_us - t0) / G_USEC_PER_SEC);
+        g_string_append_printf (csv, "%" G_GUINT64_FORMAT, s.timestamp_us / 1000);
 
         if (self->recording_channels & REC_VOLTAGE) g_string_append_printf (csv, ",%.4f", s.voltage);
         if (self->recording_channels & REC_CURRENT) g_string_append_printf (csv, ",%.4f", s.current);
