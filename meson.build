@@ -76,17 +76,17 @@ appdata_file = configure_file(
     install_dir: get_option('datadir') / 'appdata'
 )
 
-# Install icons
-icons = [
-    'data/icons/hicolor/16x16/apps/org.gnome.USBTesterMonitor.svg',
-    'data/icons/hicolor/32x32/apps/org.gnome.USBTesterMonitor.svg',
-    'data/icons/hicolor/48x48/apps/org.gnome.USBTesterMonitor.svg',
-    'data/icons/hicolor/64x64/apps/org.gnome.USBTesterMonitor.svg',
-    'data/icons/hicolor/128x128/apps/org.gnome.USBTesterMonitor.svg',
-    'data/icons/hicolor/256x256/apps/org.gnome.USBTesterMonitor.svg',
-    'data/icons/hicolor/scalable/apps/org.gnome.USBTesterMonitor.svg',
-]
-
-foreach icon : icons
-    install_data(icon, install_dir: get_option('datadir') / 'icons/hicolor/' / icon.split('/')[-3] + 'x' + icon.split('/')[-2] / 'apps')
-endforeach
+# Install icons (commented out - icons directory removed for now)
+# icons = [
+#     'data/icons/hicolor/16x16/apps/org.gnome.USBTesterMonitor.svg',
+#     'data/icons/hicolor/32x32/apps/org.gnome.USBTesterMonitor.svg',
+#     'data/icons/hicolor/48x48/apps/org.gnome.USBTesterMonitor.svg',
+#     'data/icons/hicolor/64x64/apps/org.gnome.USBTesterMonitor.svg',
+#     'data/icons/hicolor/128x128/apps/org.gnome.USBTesterMonitor.svg',
+#     'data/icons/hicolor/256x256/apps/org.gnome.USBTesterMonitor.svg',
+#     'data/icons/hicolor/scalable/apps/org.gnome.USBTesterMonitor.svg',
+# ]
+#
+# foreach icon : icons
+#     install_data(icon, install_dir: get_option('datadir') / 'icons/hicolor/' / icon.split('/')[-3] + 'x' + icon.split('/')[-2] / 'apps')
+# endforeach
