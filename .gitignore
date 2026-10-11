@@ -1,0 +1,4 @@
+build/
+build-clean/
+.flatpak-build/
+.flatpak-builder/

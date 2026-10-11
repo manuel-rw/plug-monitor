@@ -28,6 +28,12 @@
         </ul>
     </description>
     <launchable type="desktop-id">io.github.manuelrw.Plug.desktop</launchable>
+    <screenshots>
+        <screenshot type="default">
+            <image>https://raw.githubusercontent.com/manuel-rw/plug-monitor/main/screenshots/main-window.png</image>
+            <caption>Main window with live readings and charts</caption>
+        </screenshot>
+    </screenshots>
     <url type="homepage">https://github.com/manuel-rw/plug-monitor</url>
     <url type="bugtracker">https://github.com/manuel-rw/plug-monitor/issues</url>
     <developer id="io.github.manuelrw">

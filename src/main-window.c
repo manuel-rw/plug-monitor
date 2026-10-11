@@ -776,6 +776,35 @@ show_permission_dialog (UsbTesterMonitorMainWindow *self,
     request->self = g_object_ref (self);
     request->identifier = g_strdup (page->device->identifier);
 
+    if (usb_tester_monitor_device_permissions_in_sandbox ()) {
+        /* Inside Flatpak the app cannot install udev rules on the host.
+         * Put the command on the clipboard and tell the user where to
+         * run it. */
+        gchar *command = usb_tester_monitor_device_permissions_host_command ();
+        GdkClipboard *clipboard = gdk_display_get_clipboard (gdk_display_get_default ());
+        gdk_clipboard_set_text (clipboard, command);
+
+        GtkAlertDialog *dialog = gtk_alert_dialog_new ("Permission required");
+        gchar *detail = g_strdup_printf (
+            "Access to %s is restricted to the administrator, and inside "
+            "the Flatpak sandbox Plug cannot install the udev rule for you.\n\n"
+            "The command to install it has been copied to your clipboard. "
+            "Paste it into a terminal on your host system, then reconnect.",
+            page->device->identifier);
+        gtk_alert_dialog_set_detail (dialog, detail);
+        g_free (detail);
+
+        const char *buttons[] = { "Close", NULL };
+        gtk_alert_dialog_set_buttons (dialog, buttons);
+        gtk_alert_dialog_set_cancel_button (dialog, 0);
+
+        request->grant_response = -1;
+        gtk_alert_dialog_choose (dialog, GTK_WINDOW (self), NULL,
+                                 on_permission_dialog_response, request);
+        g_free (command);
+        return;
+    }
+
     GtkAlertDialog *dialog = gtk_alert_dialog_new ("Permission required");
     gchar *detail = g_strdup_printf (
         "Access to %s is restricted to the administrator. "

@@ -1,0 +1,25 @@
+{
+    "app-id": "io.github.manuelrw.Plug",
+    "runtime": "org.gnome.Platform",
+    "runtime-version": "50",
+    "sdk": "org.gnome.Sdk",
+    "command": "plug",
+    "finish-args": [
+        "--device=all",
+        "--share=ipc",
+        "--socket=fallback-x11",
+        "--socket=wayland"
+    ],
+    "modules": [
+        {
+            "name": "plug",
+            "buildsystem": "meson",
+            "sources": [
+                {
+                    "type": "dir",
+                    "path": ".."
+                }
+            ]
+        }
+    ]
+}

@@ -7,4 +7,3 @@ Icon=io.github.manuelrw.Plug
 Terminal=false
 Categories=Utility;Electronics;HardwareSettings;
 StartupWMClass=plug
-Version=@version@

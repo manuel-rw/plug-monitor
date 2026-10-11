@@ -92,3 +92,20 @@ usb_tester_monitor_device_permissions_grant_fnirsi_fnb48_async (
 
     g_subprocess_wait_check_async (process, NULL, on_pkexec_finished, data);
 }
+
+gboolean
+usb_tester_monitor_device_permissions_in_sandbox (void)
+{
+    return g_file_test ("/.flatpak-info", G_FILE_TEST_EXISTS);
+}
+
+gchar *
+usb_tester_monitor_device_permissions_host_command (void)
+{
+    return g_strdup_printf (
+        "sudo tee /etc/udev/rules.d/90-plug-usb-testers.rules >/dev/null <<'EOF'\n"
+        "%s"
+        "EOF\n"
+        "sudo udevadm control --reload && sudo udevadm trigger --subsystem-match=hidraw",
+        rule_contents);
+}

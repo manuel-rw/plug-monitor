@@ -75,6 +75,26 @@ sudo ninja -C build install
 plug
 ```
 
+### Flatpak
+
+A Flatpak manifest (`io.github.manuelrw.Plug.json`) is included at the repository
+root. To build and install it locally:
+
+```bash
+flatpak install --user flathub org.gnome.Sdk//50
+flatpak-builder --user --install --force-clean .flatpak-build io.github.manuelrw.Plug.json
+```
+
+Notes on the Flatpak build:
+
+- The manifest requests `--device=all` so the sandbox can reach `hidraw` and
+  `ttyACM*` device nodes.
+- The udev rule still has to be installed on the host (it cannot be installed
+  from inside the sandbox). When access is denied, Plug copies the command for
+  the host to your clipboard.
+- The manifest builds from the `v0.1.0` git tag, so push and tag a release
+  before submitting to Flathub.
+
 ## Usage
 
 1. **Connect your USB tester device** via USB
