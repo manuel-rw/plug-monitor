@@ -26,6 +26,9 @@ struct _UsbTesterMonitorDataDisplay {
     GtkLabel *max_voltage_label;
     GtkLabel *min_current_label;
     GtkLabel *max_current_label;
+
+    /* Ripple widget */
+    GtkLabel *ripple_label;
     
     /* Main grid */
     GtkGrid *grid;
@@ -68,6 +71,7 @@ usb_tester_monitor_data_display_init (UsbTesterMonitorDataDisplay *self)
     GtkLabel *voltage_title = GTK_LABEL (gtk_label_new ("Voltage"));
     gtk_label_set_xalign (voltage_title, 0.0);
     gtk_widget_add_css_class (GTK_WIDGET (voltage_title), "h3");
+    gtk_widget_add_css_class (GTK_WIDGET (voltage_title), "voltage-title");
     gtk_grid_insert_column (self->grid, 0);
     gtk_grid_attach (self->grid, GTK_WIDGET (voltage_title), 0, 0, 1, 1);
     
@@ -88,6 +92,7 @@ usb_tester_monitor_data_display_init (UsbTesterMonitorDataDisplay *self)
     GtkLabel *current_title = GTK_LABEL (gtk_label_new ("Current"));
     gtk_label_set_xalign (current_title, 0.0);
     gtk_widget_add_css_class (GTK_WIDGET (current_title), "h3");
+    gtk_widget_add_css_class (GTK_WIDGET (current_title), "current-title");
     gtk_grid_attach (self->grid, GTK_WIDGET (current_title), 1, 0, 1, 1);
     
     GtkBox *current_box = GTK_BOX (gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0));
@@ -107,6 +112,7 @@ usb_tester_monitor_data_display_init (UsbTesterMonitorDataDisplay *self)
     GtkLabel *power_title = GTK_LABEL (gtk_label_new ("Power"));
     gtk_label_set_xalign (power_title, 0.0);
     gtk_widget_add_css_class (GTK_WIDGET (power_title), "h3");
+    gtk_widget_add_css_class (GTK_WIDGET (power_title), "power-title");
     gtk_grid_attach (self->grid, GTK_WIDGET (power_title), 2, 0, 1, 1);
     
     GtkBox *power_box = GTK_BOX (gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0));
@@ -171,6 +177,18 @@ usb_tester_monitor_data_display_init (UsbTesterMonitorDataDisplay *self)
     gtk_box_append (current_stats, GTK_WIDGET (self->max_current_label));
     
     gtk_grid_attach (self->grid, GTK_WIDGET (current_stats), 1, 4, 1, 1);
+
+    /* Ripple (peak-to-peak voltage over the recent window) */
+    GtkBox *ripple_stats = GTK_BOX (gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 12));
+
+    GtkLabel *ripple_caption = GTK_LABEL (gtk_label_new ("Ripple:"));
+    gtk_box_append (ripple_stats, GTK_WIDGET (ripple_caption));
+
+    self->ripple_label = GTK_LABEL (gtk_label_new ("0.0 mV"));
+    gtk_widget_add_css_class (GTK_WIDGET (self->ripple_label), "ripple-value");
+    gtk_box_append (ripple_stats, GTK_WIDGET (self->ripple_label));
+
+    gtk_grid_attach (self->grid, GTK_WIDGET (ripple_stats), 2, 4, 1, 1);
 }
 
 UsbTesterMonitorDataDisplay *
@@ -250,7 +268,18 @@ usb_tester_monitor_data_display_set_min_max_current (UsbTesterMonitorDataDisplay
     
     gtk_label_set_text (self->min_current_label, min_text);
     gtk_label_set_text (self->max_current_label, max_text);
-    
+
     g_free (min_text);
     g_free (max_text);
+}
+
+void
+usb_tester_monitor_data_display_set_ripple (UsbTesterMonitorDataDisplay *self,
+                                            gdouble ripple_voltage)
+{
+    g_return_if_fail (USB_TESTER_MONITOR_IS_DATA_DISPLAY (self));
+
+    gchar *text = g_strdup_printf ("%.1f mV", ripple_voltage * 1000.0);
+    gtk_label_set_text (self->ripple_label, text);
+    g_free (text);
 }

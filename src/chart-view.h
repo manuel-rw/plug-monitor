@@ -12,11 +12,9 @@ G_DECLARE_FINAL_TYPE (UsbTesterMonitorChartView, usb_tester_monitor_chart_view,
 
 UsbTesterMonitorChartView *usb_tester_monitor_chart_view_new (void);
 
-void usb_tester_monitor_chart_view_add_voltage_reading (UsbTesterMonitorChartView *self,
-                                                        gdouble voltage);
-
-void usb_tester_monitor_chart_view_add_current_reading (UsbTesterMonitorChartView *self,
-                                                        gdouble current);
+void usb_tester_monitor_chart_view_add_reading (UsbTesterMonitorChartView *self,
+                                                gdouble voltage,
+                                                gdouble current);
 
 void usb_tester_monitor_chart_view_clear (UsbTesterMonitorChartView *self);
 

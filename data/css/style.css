@@ -1,8 +1,6 @@
-/* Main application styling */
-
-/* Background colors */
-background-color: @window_bg_color;
-color: @window_fg_color;
+/* Main application styling.
+ * Note: the app currently loads an embedded copy of the color rules from
+ * src/application.c; keep both in sync. */
 
 /* Main display area */
 .main-display {
@@ -34,12 +32,20 @@ color: @window_fg_color;
     color: #35b042;
 }
 
+.voltage-title {
+    color: #35b042;
+}
+
 /* Current styling (yellow/orange theme) */
 .current-value {
     color: #f57900;
 }
 
 .current-unit {
+    color: #f57900;
+}
+
+.current-title {
     color: #f57900;
 }
 
@@ -50,6 +56,21 @@ color: @window_fg_color;
 
 .power-unit {
     color: #3584e4;
+}
+
+.power-title {
+    color: #3584e4;
+}
+
+/* Ripple (peak-to-peak voltage) */
+.ripple-value {
+    color: #35b042;
+    font-weight: bold;
+}
+
+/* Left-side device panel */
+.device-panel {
+    background-color: @sidebar_bg_color;
 }
 
 /* Chart area */

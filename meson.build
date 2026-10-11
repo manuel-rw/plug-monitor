@@ -9,6 +9,9 @@ gio_dep = dependency('gio-2.0', version: '>= 2.78.0')
 gobject_dep = dependency('gobject-2.0', version: '>= 2.78.0')
 libadwaita_dep = dependency('libadwaita-1', version: '>= 1.4.0')
 
+# libm for round() used by the chart view
+math_dep = meson.get_compiler('c').find_library('m', required: false)
+
 # Compiler flags
 add_project_arguments(
     '-DGETTEXT_PACKAGE="usb-tester-monitor"',
@@ -53,7 +56,7 @@ executable('usb-tester-monitor',
         'src/data-logger.c',
         'src/data-logger.h',
     ],
-    dependencies: [gtk_dep, glib_dep, gio_dep, gobject_dep, libadwaita_dep],
+    dependencies: [gtk_dep, glib_dep, gio_dep, gobject_dep, libadwaita_dep, math_dep],
     install: true
 )
 

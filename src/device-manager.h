@@ -66,12 +66,17 @@ gboolean usb_tester_monitor_device_manager_connect_device (UsbTesterMonitorDevic
 void usb_tester_monitor_device_manager_disconnect_device (UsbTesterMonitorDeviceManager *self,
                                                            const gchar *identifier);
 
-typedef void (*UsbTesterMonitorManagerReadingCallback) (gdouble voltage,
+typedef void (*UsbTesterMonitorManagerReadingCallback) (const gchar *identifier,
+                                                        gdouble voltage,
                                                         gdouble current,
                                                         gpointer user_data);
 
 void usb_tester_monitor_device_manager_set_reading_callback (UsbTesterMonitorDeviceManager *self,
                                                              UsbTesterMonitorManagerReadingCallback callback,
                                                              gpointer user_data);
+
+/* Whether a connection is currently open for the given device identifier. */
+gboolean usb_tester_monitor_device_manager_is_connected (UsbTesterMonitorDeviceManager *self,
+                                                         const gchar *identifier);
 
 G_END_DECLS

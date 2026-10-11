@@ -1,11 +1,44 @@
 #include "application.h"
 #include "main-window.h"
+#include <gtk/gtk.h>
 
 struct _UsbTesterMonitorApplication {
     AdwApplication parent_instance;
 };
 
 G_DEFINE_FINAL_TYPE (UsbTesterMonitorApplication, usb_tester_monitor_application, ADW_TYPE_APPLICATION)
+
+/* Series colors used across the app: green voltage, orange current, blue power.
+ * Keep in sync with the chart colors in chart-view.c. */
+static const char *app_css =
+    ".voltage-value, .voltage-unit, .voltage-title { color: #35b042; }"
+    ".current-value, .current-unit, .current-title { color: #f57900; }"
+    ".power-value, .power-unit, .power-title { color: #3584e4; }"
+    ".voltage-value, .current-value, .power-value {"
+    "  font-size: 32px;"
+    "  font-weight: 700;"
+    "}"
+    ".voltage-unit, .current-unit, .power-unit {"
+    "  font-size: 16px;"
+    "  font-weight: 700;"
+    "  opacity: 0.85;"
+    "}"
+    ".ripple-value { color: #35b042; font-weight: 700; }"
+    ".device-panel { background-color: @sidebar_bg_color; }"
+    ".device-panel-row { padding: 8px 12px; }";
+
+static void
+usb_tester_monitor_application_startup (GApplication *app)
+{
+    G_APPLICATION_CLASS (usb_tester_monitor_application_parent_class)->startup (app);
+
+    GtkCssProvider *provider = gtk_css_provider_new ();
+    gtk_css_provider_load_from_string (provider, app_css);
+    gtk_style_context_add_provider_for_display (gdk_display_get_default (),
+                                                GTK_STYLE_PROVIDER (provider),
+                                                GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+    g_object_unref (provider);
+}
 
 static void
 usb_tester_monitor_application_activate (GApplication *app)
@@ -22,6 +55,7 @@ usb_tester_monitor_application_class_init (UsbTesterMonitorApplicationClass *kla
 {
     GApplicationClass *app_class = G_APPLICATION_CLASS (klass);
 
+    app_class->startup = usb_tester_monitor_application_startup;
     app_class->activate = usb_tester_monitor_application_activate;
 }
 

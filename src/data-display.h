@@ -32,4 +32,8 @@ void usb_tester_monitor_data_display_set_min_max_current (UsbTesterMonitorDataDi
                                                            gdouble min_current,
                                                            gdouble max_current);
 
+/* Ripple (peak-to-peak) voltage in volts */
+void usb_tester_monitor_data_display_set_ripple (UsbTesterMonitorDataDisplay *self,
+                                                 gdouble ripple_voltage);
+
 G_END_DECLS

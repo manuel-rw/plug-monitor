@@ -17,9 +17,9 @@ struct _UsbTesterMonitorDeviceManager {
     /* List of detected devices */
     GListStore *devices;
 
-    /* Currently connected device */
-    UsbTesterMonitorDeviceProtocol *active_protocol;
-    gchar *active_identifier;
+    /* Open connections: device identifier -> UsbTesterMonitorDeviceProtocol.
+     * Multiple devices can be connected at the same time. */
+    GHashTable *connections;
 
     /* Device scanning */
     GList *serial_ports;
@@ -76,14 +76,24 @@ usb_tester_monitor_device_manager_finalize (GObject *object)
 {
     UsbTesterMonitorDeviceManager *self = USB_TESTER_MONITOR_DEVICE_MANAGER (object);
 
-    if (self->active_protocol) {
-        usb_tester_monitor_device_protocol_stop_streaming (self->active_protocol);
-        usb_tester_monitor_device_protocol_disconnect (self->active_protocol);
-        g_object_unref (self->active_protocol);
-        self->active_protocol = NULL;
-    }
+    if (self->connections) {
+        GHashTableIter iter;
+        gpointer key, value;
 
-    g_free (self->active_identifier);
+        g_hash_table_iter_init (&iter, self->connections);
+        while (g_hash_table_iter_next (&iter, &key, &value)) {
+            UsbTesterMonitorDeviceProtocol *protocol = value;
+
+            usb_tester_monitor_device_protocol_stop_streaming (protocol);
+            usb_tester_monitor_device_protocol_disconnect (protocol);
+            g_object_unref (protocol);
+
+            g_hash_table_iter_steal (&iter);
+            g_free (key);
+        }
+
+        g_hash_table_unref (self->connections);
+    }
 
     if (self->devices) {
         g_object_unref (self->devices);
@@ -106,6 +116,8 @@ static void
 usb_tester_monitor_device_manager_init (UsbTesterMonitorDeviceManager *self)
 {
     self->devices = g_list_store_new (USB_TESTER_MONITOR_TYPE_DEVICE);
+    /* Keys are owned copies of the identifier, values are owned protocols */
+    self->connections = g_hash_table_new (g_str_hash, g_str_equal);
     self->serial_ports = NULL;
 }
 
@@ -222,10 +234,13 @@ usb_tester_monitor_device_manager_on_reading (UsbTesterMonitorDeviceProtocol *pr
                                                gpointer user_data)
 {
     UsbTesterMonitorDeviceManager *self = USB_TESTER_MONITOR_DEVICE_MANAGER (user_data);
-    (void) protocol;
 
     if (self->reading_callback) {
-        self->reading_callback (reading->voltage, reading->current,
+        /* Each protocol carries the identifier of the device it serves,
+         * so readings can be routed to the right device in the UI. */
+        const gchar *identifier = g_object_get_data (G_OBJECT (protocol),
+                                                    "device-identifier");
+        self->reading_callback (identifier, reading->voltage, reading->current,
                                  self->reading_user_data);
     }
 }
@@ -251,40 +266,44 @@ usb_tester_monitor_device_manager_connect_device (UsbTesterMonitorDeviceManager 
     g_return_val_if_fail (USB_TESTER_MONITOR_IS_DEVICE_MANAGER (self), FALSE);
     g_return_val_if_fail (identifier != NULL, FALSE);
 
-    if (self->active_protocol != NULL) {
-        usb_tester_monitor_device_manager_disconnect_device (self, self->active_identifier);
-    }
-
     UsbTesterMonitorDevice *device = usb_tester_monitor_device_manager_find_device (self, identifier);
     if (device == NULL) {
         return FALSE;
     }
 
-    self->active_protocol = usb_tester_monitor_device_protocol_new_for_type (identifier,
-                                                                             "qianli-a3");
-    usb_tester_monitor_device_protocol_set_data_callback (self->active_protocol,
+    /* Already connected: nothing to do */
+    if (g_hash_table_contains (self->connections, identifier)) {
+        g_object_unref (device);
+        return TRUE;
+    }
+
+    UsbTesterMonitorDeviceProtocol *protocol =
+        usb_tester_monitor_device_protocol_new_for_type (identifier, "qianli-a3");
+    usb_tester_monitor_device_protocol_set_data_callback (protocol,
                                                           usb_tester_monitor_device_manager_on_reading,
                                                           self, NULL);
 
     GError *error = NULL;
-    if (!usb_tester_monitor_device_protocol_connect (self->active_protocol, &error)) {
+    if (!usb_tester_monitor_device_protocol_connect (protocol, &error)) {
         g_warning ("Failed to connect to %s: %s", identifier,
                    error ? error->message : "unknown error");
         g_clear_error (&error);
-        g_object_unref (self->active_protocol);
-        self->active_protocol = NULL;
+        g_object_unref (protocol);
         device->state = USB_TESTER_MONITOR_DEVICE_STATE_ERROR;
         g_object_unref (device);
         return FALSE;
     }
 
-    usb_tester_monitor_device_protocol_start_streaming (self->active_protocol);
+    /* Associate the protocol with its identifier so readings can be routed */
+    g_object_set_data_full (G_OBJECT (protocol), "device-identifier",
+                            g_strdup (identifier), g_free);
+
+    usb_tester_monitor_device_protocol_start_streaming (protocol);
+
+    g_hash_table_insert (self->connections, g_strdup (identifier), protocol);
 
     device->state = USB_TESTER_MONITOR_DEVICE_STATE_CONNECTED;
     g_object_unref (device);
-
-    g_free (self->active_identifier);
-    self->active_identifier = g_strdup (identifier);
 
     return TRUE;
 }
@@ -293,19 +312,23 @@ void
 usb_tester_monitor_device_manager_disconnect_device (UsbTesterMonitorDeviceManager *self,
                                                       const gchar *identifier)
 {
-    g_return_if_fail (USB_TESTER_MONITOR_IS_DEVICE_MANAGER (self));
+    g_return_if_fail (USB_TESTER_MONITOR_DEVICE_MANAGER (self));
 
-    if (self->active_protocol == NULL) {
+    if (identifier == NULL) {
         return;
     }
 
-    usb_tester_monitor_device_protocol_stop_streaming (self->active_protocol);
-    usb_tester_monitor_device_protocol_disconnect (self->active_protocol);
-    g_object_unref (self->active_protocol);
-    self->active_protocol = NULL;
+    gpointer key = NULL;
+    gpointer value = NULL;
 
-    g_free (self->active_identifier);
-    self->active_identifier = NULL;
+    if (g_hash_table_steal_extended (self->connections, identifier, &key, &value)) {
+        UsbTesterMonitorDeviceProtocol *protocol = value;
+
+        usb_tester_monitor_device_protocol_stop_streaming (protocol);
+        usb_tester_monitor_device_protocol_disconnect (protocol);
+        g_object_unref (protocol);
+        g_free (key);
+    }
 
     /* Update device state */
     if (identifier != NULL) {
@@ -328,4 +351,14 @@ usb_tester_monitor_device_manager_set_reading_callback (UsbTesterMonitorDeviceMa
 
     self->reading_callback = callback;
     self->reading_user_data = user_data;
+}
+
+gboolean
+usb_tester_monitor_device_manager_is_connected (UsbTesterMonitorDeviceManager *self,
+                                                const gchar *identifier)
+{
+    g_return_val_if_fail (USB_TESTER_MONITOR_DEVICE_MANAGER (self), FALSE);
+    g_return_val_if_fail (identifier != NULL, FALSE);
+
+    return g_hash_table_contains (self->connections, identifier);
 }
