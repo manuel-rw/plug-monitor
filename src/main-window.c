@@ -44,7 +44,7 @@ struct _UsbTesterMonitorMainWindow {
     /* UI widgets */
     GtkLabel *title_label;
     GtkToggleButton *panel_button;
-    GtkButton *add_button;
+    GtkMenuButton *add_button;
     GtkToggleButton *connect_button;
     GtkPopover *add_popover;
     GtkBox *add_popover_box;
@@ -453,7 +453,7 @@ setup_header_bar (UsbTesterMonitorMainWindow *self,
     gtk_header_bar_set_title_widget (header_bar, GTK_WIDGET (self->title_label));
 
     /* "+" button (top left) to add devices */
-    self->add_button = GTK_BUTTON (gtk_menu_button_new ());
+    self->add_button = GTK_MENU_BUTTON (gtk_menu_button_new ());
     gtk_menu_button_set_icon_name (GTK_MENU_BUTTON (self->add_button), "list-add-symbolic");
     gtk_widget_set_tooltip_text (GTK_WIDGET (self->add_button), "Add device");
     gtk_header_bar_pack_start (header_bar, GTK_WIDGET (self->add_button));
