@@ -2,6 +2,7 @@
 #include "application.h"
 #include "device-manager.h"
 #include "device-protocol.h"
+#include "device-permissions.h"
 #include "data-display.h"
 #include "stats-card.h"
 #include "chart-view.h"
@@ -635,6 +636,132 @@ on_device_row_selected (GtkListBox *box,
     }
 }
 
+/* ------------------------------------------------------ Device permissions */
+
+static void on_connect_button_toggled (GtkToggleButton *button, gpointer user_data);
+
+typedef struct {
+    UsbTesterMonitorMainWindow *self; /* strong reference */
+    gchar *identifier;
+    gint grant_response;
+} PermissionRequest;
+
+static void
+permission_request_free (PermissionRequest *request)
+{
+    g_object_unref (request->self);
+    g_free (request->identifier);
+    g_free (request);
+}
+
+static void
+release_connect_toggle (UsbTesterMonitorMainWindow *self)
+{
+    g_signal_handlers_block_by_func (self->connect_button, on_connect_button_toggled, self);
+    gtk_toggle_button_set_active (self->connect_button, FALSE);
+    g_signal_handlers_unblock_by_func (self->connect_button, on_connect_button_toggled, self);
+}
+
+static gboolean
+retry_connect_after_grant_idle (gpointer user_data)
+{
+    PermissionRequest *request = user_data;
+    UsbTesterMonitorMainWindow *self = request->self;
+
+    DevicePage *page = find_page (self, request->identifier);
+    if (page != NULL) {
+        GError *error = NULL;
+        if (usb_tester_monitor_device_manager_connect_device (self->device_manager,
+                                                              request->identifier,
+                                                              &error)) {
+            row_dot_set_connected (page->row_dot, TRUE);
+            connect_button_set_connected (self, TRUE);
+
+            g_signal_handlers_block_by_func (self->connect_button, on_connect_button_toggled, self);
+            gtk_toggle_button_set_active (self->connect_button, TRUE);
+            g_signal_handlers_unblock_by_func (self->connect_button, on_connect_button_toggled, self);
+        } else {
+            show_error_dialog (self, error != NULL ? error->message
+                                                   : "Could not connect to the device");
+            g_clear_error (&error);
+            release_connect_toggle (self);
+        }
+    }
+
+    permission_request_free (request);
+    return G_SOURCE_REMOVE;
+}
+
+static void
+retry_connect_after_grant (gboolean granted,
+                           gpointer user_data)
+{
+    PermissionRequest *request = user_data;
+    UsbTesterMonitorMainWindow *self = request->self;
+
+    if (granted) {
+        /* udev needs a moment to apply the new node permissions */
+        g_timeout_add (500, retry_connect_after_grant_idle, request);
+        return;
+    }
+
+    show_error_dialog (self,
+                       "Access could not be granted. Install the udev rule "
+                       "described in the README manually, then reconnect.");
+    release_connect_toggle (self);
+    permission_request_free (request);
+}
+
+static void
+on_permission_dialog_response (GObject *source,
+                               GAsyncResult *result,
+                               gpointer user_data)
+{
+    PermissionRequest *request = user_data;
+    GtkAlertDialog *dialog = GTK_ALERT_DIALOG (source);
+
+    gint response = gtk_alert_dialog_choose_finish (dialog, result, NULL);
+
+    if (response == request->grant_response) {
+        usb_tester_monitor_device_permissions_grant_fnirsi_fnb48_async (
+            retry_connect_after_grant, request);
+    } else {
+        release_connect_toggle (request->self);
+        permission_request_free (request);
+    }
+
+    g_object_unref (dialog);
+}
+
+static void
+show_permission_dialog (UsbTesterMonitorMainWindow *self,
+                        DevicePage *page)
+{
+    PermissionRequest *request = g_new (PermissionRequest, 1);
+    request->self = g_object_ref (self);
+    request->identifier = g_strdup (page->device->identifier);
+
+    GtkAlertDialog *dialog = gtk_alert_dialog_new ("Permission required");
+    gchar *detail = g_strdup_printf (
+        "Access to %s is restricted to the administrator. "
+        "USB Tester Monitor can install a udev rule that grants you access to "
+        "this device permanently. Your password will be requested once.",
+        page->device->identifier);
+    gtk_alert_dialog_set_detail (dialog, detail);
+    g_free (detail);
+
+    const char *buttons[] = { "Cancel", "Grant Access", NULL };
+    gtk_alert_dialog_set_buttons (dialog, buttons);
+    request->grant_response = 1;
+    gtk_alert_dialog_set_cancel_button (dialog, 0);
+    gtk_alert_dialog_set_default_button (dialog, request->grant_response);
+
+    gtk_alert_dialog_choose (dialog, GTK_WINDOW (self), NULL,
+                             on_permission_dialog_response, request);
+}
+
+/* -------------------------------------------------------------- Connect UI */
+
 static void
 on_connect_button_toggled (GtkToggleButton *button,
                            gpointer user_data)
@@ -654,18 +781,33 @@ on_connect_button_toggled (GtkToggleButton *button,
     const gchar *identifier = page->device->identifier;
 
     if (gtk_toggle_button_get_active (button)) {
+        GError *error = NULL;
         gboolean connected =
             usb_tester_monitor_device_manager_connect_device (self->device_manager,
-                                                               identifier);
+                                                               identifier, &error);
 
         if (connected) {
             row_dot_set_connected (page->row_dot, TRUE);
             connect_button_set_connected (self, TRUE);
+        } else if (error != NULL &&
+                   g_error_matches (error, G_IO_ERROR, G_IO_ERROR_PERMISSION_DENIED) &&
+                   page->device->type == USB_TESTER_MONITOR_DEVICE_TYPE_FNIRSI_FNB48) {
+            g_error_free (error);
+
+            /* Release the toggle; the retry after granting re-activates it */
+            g_signal_handlers_block_by_func (button, on_connect_button_toggled, self);
+            gtk_toggle_button_set_active (button, FALSE);
+            g_signal_handlers_unblock_by_func (button, on_connect_button_toggled, self);
+
+            show_permission_dialog (self, page);
         } else {
-            gchar *message = g_strdup_printf ("Could not connect to %s",
-                                              page->device->name);
+            gchar *message = g_strdup_printf ("Could not connect to %s%s%s",
+                                              page->device->name,
+                                              error != NULL ? ": " : "",
+                                              error != NULL ? error->message : "");
             show_error_dialog (self, message);
             g_free (message);
+            g_clear_error (&error);
 
             g_signal_handlers_block_by_func (button, on_connect_button_toggled, self);
             gtk_toggle_button_set_active (button, FALSE);

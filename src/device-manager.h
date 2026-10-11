@@ -29,6 +29,7 @@ typedef enum {
 
 typedef enum {
     USB_TESTER_MONITOR_DEVICE_TYPE_QIANLI_A3,
+    USB_TESTER_MONITOR_DEVICE_TYPE_FNIRSI_FNB48,
     USB_TESTER_MONITOR_DEVICE_TYPE_UNKNOWN
 } UsbTesterMonitorDeviceType;
 
@@ -59,9 +60,11 @@ GListModel *usb_tester_monitor_device_manager_get_devices (UsbTesterMonitorDevic
 void usb_tester_monitor_device_manager_scan_devices (UsbTesterMonitorDeviceManager *self);
 
 /* Connect/disconnect by device identifier (e.g. "/dev/ttyACM0").
- * Returns FALSE when the device is unknown or the serial port cannot be opened. */
+ * Returns FALSE when the device is unknown or the serial port cannot be
+ * opened; error (when not NULL) is set with the failure reason. */
 gboolean usb_tester_monitor_device_manager_connect_device (UsbTesterMonitorDeviceManager *self,
-                                                        const gchar *identifier);
+                                                        const gchar *identifier,
+                                                        GError **error);
 
 void usb_tester_monitor_device_manager_disconnect_device (UsbTesterMonitorDeviceManager *self,
                                                            const gchar *identifier);

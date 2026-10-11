@@ -11,6 +11,10 @@
 #define QIANLI_A3_USB_VENDOR_ID "2e88"
 #define QIANLI_A3_USB_PRODUCT_ID "4603"
 
+/* USB IDs of the Fnirsi FNB-48 (STMicroelectronics HID) */
+#define FNIRSI_FNB48_USB_VENDOR_ID "0483"
+#define FNIRSI_FNB48_USB_PRODUCT_ID "003a"
+
 struct _UsbTesterMonitorDeviceManager {
     GObject parent_instance;
 
@@ -136,13 +140,16 @@ usb_tester_monitor_device_manager_get_devices (UsbTesterMonitorDeviceManager *se
 }
 
 /* Walk up the sysfs device chain looking for idVendor/idProduct files.
- * Fills vendor/product with freshly allocated strings when found. */
+ * class_name is a directory under /sys/class (e.g. "tty", "hidraw") whose
+ * entries carry a "device" symlink. Fills vendor/product with freshly
+ * allocated strings when found. */
 static gboolean
-usb_tester_monitor_device_manager_find_usb_ids (const gchar *tty_name,
-                                                 gchar **vendor,
-                                                 gchar **product)
+usb_tester_monitor_device_manager_find_usb_ids (const gchar *class_name,
+                                                const gchar *dev_name,
+                                                gchar **vendor,
+                                                gchar **product)
 {
-    gchar *device_link = g_build_filename ("/sys/class/tty", tty_name, "device", NULL);
+    gchar *device_link = g_build_filename ("/sys/class", class_name, dev_name, "device", NULL);
     char resolved[PATH_MAX];
 
     if (!realpath (device_link, resolved)) {
@@ -207,7 +214,7 @@ usb_tester_monitor_device_manager_scan_devices (UsbTesterMonitorDeviceManager *s
         gchar *vendor = NULL;
         gchar *product = NULL;
 
-        if (!usb_tester_monitor_device_manager_find_usb_ids (name, &vendor, &product)) {
+        if (!usb_tester_monitor_device_manager_find_usb_ids ("tty", name, &vendor, &product)) {
             continue;
         }
 
@@ -218,6 +225,36 @@ usb_tester_monitor_device_manager_scan_devices (UsbTesterMonitorDeviceManager *s
                                  usb_tester_monitor_device_new ("Qianli iBridge A3",
                                                                 identifier,
                                                                 USB_TESTER_MONITOR_DEVICE_TYPE_QIANLI_A3));
+            g_free (identifier);
+        }
+
+        g_free (vendor);
+        g_free (product);
+    }
+
+    g_dir_close (dir);
+
+    /* Fnirsi FNB-48: HID device, exposed as a hidraw node instead of a tty */
+    dir = g_dir_open ("/sys/class/hidraw", 0, NULL);
+    if (dir == NULL) {
+        return;
+    }
+
+    while ((name = g_dir_read_name (dir)) != NULL) {
+        gchar *vendor = NULL;
+        gchar *product = NULL;
+
+        if (!usb_tester_monitor_device_manager_find_usb_ids ("hidraw", name, &vendor, &product)) {
+            continue;
+        }
+
+        if (g_strcmp0 (vendor, FNIRSI_FNB48_USB_VENDOR_ID) == 0 &&
+            g_strcmp0 (product, FNIRSI_FNB48_USB_PRODUCT_ID) == 0) {
+            gchar *identifier = g_strdup_printf ("/dev/%s", name);
+            g_list_store_append (self->devices,
+                                 usb_tester_monitor_device_new ("Fnirsi FNB-48",
+                                                                identifier,
+                                                                USB_TESTER_MONITOR_DEVICE_TYPE_FNIRSI_FNB48));
             g_free (identifier);
         }
 
@@ -262,13 +299,16 @@ usb_tester_monitor_device_manager_find_device (UsbTesterMonitorDeviceManager *se
 
 gboolean
 usb_tester_monitor_device_manager_connect_device (UsbTesterMonitorDeviceManager *self,
-                                                   const gchar *identifier)
+                                                   const gchar *identifier,
+                                                   GError **error)
 {
     g_return_val_if_fail (USB_TESTER_MONITOR_IS_DEVICE_MANAGER (self), FALSE);
     g_return_val_if_fail (identifier != NULL, FALSE);
 
     UsbTesterMonitorDevice *device = usb_tester_monitor_device_manager_find_device (self, identifier);
     if (device == NULL) {
+        g_set_error (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND,
+                     "No device with identifier '%s'", identifier);
         return FALSE;
     }
 
@@ -278,17 +318,22 @@ usb_tester_monitor_device_manager_connect_device (UsbTesterMonitorDeviceManager 
         return TRUE;
     }
 
+    const gchar *protocol_type = "qianli-a3";
+    if (device->type == USB_TESTER_MONITOR_DEVICE_TYPE_FNIRSI_FNB48) {
+        protocol_type = "fnirsi-fnb48";
+    }
+
     UsbTesterMonitorDeviceProtocol *protocol =
-        usb_tester_monitor_device_protocol_new_for_type (identifier, "qianli-a3");
+        usb_tester_monitor_device_protocol_new_for_type (identifier, protocol_type);
     usb_tester_monitor_device_protocol_set_data_callback (protocol,
                                                           usb_tester_monitor_device_manager_on_reading,
                                                           self, NULL);
 
-    GError *error = NULL;
-    if (!usb_tester_monitor_device_protocol_connect (protocol, &error)) {
+    GError *connect_error = NULL;
+    if (!usb_tester_monitor_device_protocol_connect (protocol, &connect_error)) {
         g_warning ("Failed to connect to %s: %s", identifier,
-                   error ? error->message : "unknown error");
-        g_clear_error (&error);
+                   connect_error ? connect_error->message : "unknown error");
+        g_propagate_error (error, connect_error);
         g_object_unref (protocol);
         device->state = USB_TESTER_MONITOR_DEVICE_STATE_ERROR;
         g_object_unref (device);

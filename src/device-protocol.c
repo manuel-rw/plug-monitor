@@ -1,5 +1,6 @@
 #include "device-protocol.h"
 #include "qianli-a3.h"
+#include "fnirsi-fnb48.h"
 #include <glib.h>
 #include <gio/gio.h>
 #include <errno.h>
@@ -36,6 +37,15 @@ struct _UsbTesterMonitorDeviceProtocol {
 G_DEFINE_FINAL_TYPE (UsbTesterMonitorDeviceProtocol, usb_tester_monitor_device_protocol, G_TYPE_OBJECT)
 
 static void usb_tester_monitor_device_protocol_close_channel (UsbTesterMonitorDeviceProtocol *self);
+
+/* The device implementation is a Qianli A3 or a Fnirsi FNB-48; the default
+ * (and the fallback for unknown types) is the Qianli A3 */
+static gboolean
+usb_tester_monitor_device_protocol_impl_is_fnirsi (UsbTesterMonitorDeviceProtocol *self)
+{
+    return self->device_impl != NULL &&
+           USB_TESTER_MONITOR_IS_FNIRSI_FNB48 (self->device_impl);
+}
 
 static void
 usb_tester_monitor_device_protocol_finalize (GObject *object)
@@ -98,7 +108,10 @@ usb_tester_monitor_device_protocol_new_for_type (const gchar *device_path,
     self->device_type = g_strdup (device_type);
     
     /* Create device-specific implementation based on type */
-    if (g_strcmp0 (device_type, "qianli-a3") == 0) {
+    if (g_strcmp0 (device_type, "fnirsi-fnb48") == 0) {
+        self->device_impl = g_object_new (USB_TESTER_MONITOR_TYPE_FNIRSI_FNB48,
+                                          NULL);
+    } else if (g_strcmp0 (device_type, "qianli-a3") == 0) {
         self->device_impl = g_object_new (USB_TESTER_MONITOR_TYPE_QIANLI_A3,
                                          NULL);
     }
@@ -144,6 +157,26 @@ usb_tester_monitor_device_protocol_on_reading (gdouble voltage,
     }
 }
 
+static void
+usb_tester_monitor_device_protocol_on_reading_fnirsi (gdouble voltage,
+                                                      gdouble current,
+                                                      gdouble temperature,
+                                                      gpointer user_data)
+{
+    UsbTesterMonitorDeviceProtocol *self = USB_TESTER_MONITOR_DEVICE_PROTOCOL (user_data);
+
+    if (self->data_callback) {
+        UsbTesterMonitorReading reading;
+        reading.voltage = voltage;
+        reading.current = current;
+        reading.power = voltage * current;
+        reading.temperature = temperature;
+        reading.battery = NAN; /* not provided by the Fnirsi FNB-48 protocol */
+        reading.timestamp = g_get_real_time ();
+        self->data_callback (self, &reading, self->user_data);
+    }
+}
+
 static gboolean
 usb_tester_monitor_device_protocol_write_packet (UsbTesterMonitorDeviceProtocol *self,
                                                   guint8 model,
@@ -181,6 +214,53 @@ usb_tester_monitor_device_protocol_write_packet (UsbTesterMonitorDeviceProtocol 
     return ok;
 }
 
+/* Write a 64-byte Fnirsi FNB-48 HID report. The device uses unnumbered
+ * reports, so the hidraw write buffer is prefixed with report id 0x00. */
+static gboolean
+usb_tester_monitor_device_protocol_write_hid_report (UsbTesterMonitorDeviceProtocol *self,
+                                                      const guint8 *report,
+                                                      gsize report_len)
+{
+    g_return_val_if_fail (self->channel != NULL, FALSE);
+    g_return_val_if_fail (report != NULL, FALSE);
+
+    guint8 *buffer = g_malloc (report_len + 1);
+    buffer[0] = 0x00; /* report id: unnumbered report */
+    memcpy (buffer + 1, report, report_len);
+
+    gsize bytes_written = 0;
+    GError *error = NULL;
+    GIOStatus status = g_io_channel_write_chars (self->channel, (const gchar *) buffer,
+                                                 report_len + 1, &bytes_written, &error);
+    g_io_channel_flush (self->channel, NULL);
+    g_free (buffer);
+
+    if (error) {
+        g_error_free (error);
+    }
+
+    return (status == G_IO_STATUS_NORMAL);
+}
+
+/* Build and send a Fnirsi FNB-48 request report */
+static gboolean
+usb_tester_monitor_device_protocol_send_fnirsi_command (UsbTesterMonitorDeviceProtocol *self,
+                                                        guint8 command)
+{
+    guint8 *report = NULL;
+    gsize report_len = 0;
+    gboolean ok = FALSE;
+
+    if (!usb_tester_monitor_fnirsi_fnb48_build_request (command, &report, &report_len)) {
+        return FALSE;
+    }
+
+    ok = usb_tester_monitor_device_protocol_write_hid_report (self, report, report_len);
+    g_free (report);
+
+    return ok;
+}
+
 static gboolean
 usb_tester_monitor_device_protocol_on_serial_data (GIOChannel *source,
                                                     GIOCondition condition,
@@ -213,8 +293,18 @@ usb_tester_monitor_device_protocol_on_serial_data (GIOChannel *source,
     }
 
     if (status == G_IO_STATUS_NORMAL && bytes_read > 0 && self->device_impl) {
-        usb_tester_monitor_qianli_a3_feed (USB_TESTER_MONITOR_QIANLI_A3 (self->device_impl),
-                                           (const guint8 *) buffer, bytes_read);
+        if (usb_tester_monitor_device_protocol_impl_is_fnirsi (self)) {
+            usb_tester_monitor_fnirsi_fnb48_feed (USB_TESTER_MONITOR_FNIRSI_FNB48 (self->device_impl),
+                                                  (const guint8 *) buffer, bytes_read);
+
+            /* The FNB-48 stops streaming when not polled regularly; the
+             * reference implementation sends one poll per received report */
+            usb_tester_monitor_device_protocol_send_fnirsi_command (self,
+                                                                     FNIRSI_FNB48_CMD_POLL);
+        } else {
+            usb_tester_monitor_qianli_a3_feed (USB_TESTER_MONITOR_QIANLI_A3 (self->device_impl),
+                                               (const guint8 *) buffer, bytes_read);
+        }
     }
 
     return TRUE;
@@ -266,9 +356,16 @@ usb_tester_monitor_device_protocol_connect (UsbTesterMonitorDeviceProtocol *self
     if (self->device_impl == NULL) {
         self->device_impl = usb_tester_monitor_qianli_a3_new (self->device_path);
     }
-    usb_tester_monitor_qianli_a3_set_reading_callback (
-        USB_TESTER_MONITOR_QIANLI_A3 (self->device_impl),
-        usb_tester_monitor_device_protocol_on_reading, self);
+
+    if (usb_tester_monitor_device_protocol_impl_is_fnirsi (self)) {
+        usb_tester_monitor_fnirsi_fnb48_set_reading_callback (
+            USB_TESTER_MONITOR_FNIRSI_FNB48 (self->device_impl),
+            usb_tester_monitor_device_protocol_on_reading_fnirsi, self);
+    } else {
+        usb_tester_monitor_qianli_a3_set_reading_callback (
+            USB_TESTER_MONITOR_QIANLI_A3 (self->device_impl),
+            usb_tester_monitor_device_protocol_on_reading, self);
+    }
 
     self->state = USB_TESTER_MONITOR_PROTOCOL_STATE_CONNECTED;
 
@@ -294,15 +391,27 @@ usb_tester_monitor_device_protocol_start_streaming (UsbTesterMonitorDeviceProtoc
         return;
     }
 
-    /* Enable data stream: Model 04, Cmd 05, Payload 00 */
-    const guint8 payload_enable = QIANLI_A3_PAYLOAD_ENABLE;
-    if (!usb_tester_monitor_device_protocol_write_packet (self,
-                                                           QIANLI_A3_MODEL_ID,
-                                                           QIANLI_A3_CMD_ENABLE_STREAM,
-                                                           0x00, 0x00,
-                                                           &payload_enable,
-                                                           1)) {
-        return;
+    if (usb_tester_monitor_device_protocol_impl_is_fnirsi (self)) {
+        /* FNB-48 handshake, followed by the poll that starts the data stream */
+        if (!usb_tester_monitor_device_protocol_send_fnirsi_command (self,
+                                                                     FNIRSI_FNB48_CMD_INIT_1) ||
+            !usb_tester_monitor_device_protocol_send_fnirsi_command (self,
+                                                                     FNIRSI_FNB48_CMD_INIT_2) ||
+            !usb_tester_monitor_device_protocol_send_fnirsi_command (self,
+                                                                     FNIRSI_FNB48_CMD_POLL)) {
+            return;
+        }
+    } else {
+        /* Enable data stream: Model 04, Cmd 05, Payload 00 */
+        const guint8 payload_enable = QIANLI_A3_PAYLOAD_ENABLE;
+        if (!usb_tester_monitor_device_protocol_write_packet (self,
+                                                               QIANLI_A3_MODEL_ID,
+                                                               QIANLI_A3_CMD_ENABLE_STREAM,
+                                                               0x00, 0x00,
+                                                               &payload_enable,
+                                                               1)) {
+            return;
+        }
     }
 
     self->source_id = g_io_add_watch (self->channel,
@@ -322,8 +431,10 @@ usb_tester_monitor_device_protocol_stop_streaming (UsbTesterMonitorDeviceProtoco
         return;
     }
 
-    /* Disable data stream: Model 04, Cmd 05, Payload 01 */
-    if (self->channel) {
+    if (usb_tester_monitor_device_protocol_impl_is_fnirsi (self)) {
+        /* The FNB-48 stops streaming once the polls cease */
+    } else if (self->channel) {
+        /* Disable data stream: Model 04, Cmd 05, Payload 01 */
         const guint8 payload_disable = QIANLI_A3_PAYLOAD_DISABLE;
         usb_tester_monitor_device_protocol_write_packet (self,
                                                          QIANLI_A3_MODEL_ID,

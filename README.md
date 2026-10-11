@@ -18,6 +18,7 @@ A GNOME desktop application for monitoring USB tester devices like the Qianli iB
 ## Supported Devices
 
 - **Qianli iBridge A3** - Fully supported with reverse-engineered protocol
+- **Fnirsi FNB-48** - Fully supported with reverse-engineered protocol
 
 ## Installation
 
@@ -86,14 +87,30 @@ usb-tester-monitor
 The application automatically detects connected USB tester devices. Currently supports:
 
 - **Qianli iBridge A3**: Uses serial communication at 115200 baud
+- **Fnirsi FNB-48**: USB HID device, accessed through its micro-USB PC port (enumerates as `0483:003a` STMicroelectronics FNB-48)
 
 ### Manual Device Path
 
 If your device is not auto-detected, you can specify the device path manually:
-- Linux: `/dev/ttyUSB0`, `/dev/ttyACM0`, etc.
+- Linux: `/dev/ttyUSB0`, `/dev/ttyACM0`, `/dev/hidraw0`, etc.
 - Windows: `COM3`, `COM4`, etc.
 
+### Fnirsi FNB-48 Permissions
+
+The FNB-48 is an HID device; on Linux its `/dev/hidraw*` node is only
+accessible to root by default. To allow access for regular users, install a
+udev rule such as:
+
+```shell
+sudo tee /etc/udev/rules.d/90-fnb48.rules <<'EOF'
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="0483", ATTRS{idProduct}=="003a", MODE="0660", GROUP="plugdev"
+EOF
+sudo udevadm control --reload && sudo udevadm trigger
+```
+
 ## Protocol Information
+
+### Qianli iBridge A3
 
 This application implements the reverse-engineered protocol from:
 
@@ -127,6 +144,33 @@ This application implements the reverse-engineered protocol from:
 | 0 | Current | uint32_be | 4 | Value / 10000.0 = Amperes |
 | 4 | Voltage | uint32_be | 4 | Value / 1000.0 = Volts |
 
+### Fnirsi FNB-48
+
+The FNB-48 protocol is based on the reverse engineering work of:
+
+> [baryluk/fnirsi-usb-power-data-logger](https://github.com/baryluk/fnirsi-usb-power-data-logger)
+
+The meter communicates over its HID interface with 64-byte reports.
+
+#### FNB-48 Protocol Details
+
+- **USB IDs**: `0483:003a` (STMicroelectronics FNB-48)
+- **Transport**: HID reports, 64 bytes each
+- **Handshake**: `AA 81`, `AA 82`, `AA 83` requests, each zero-padded to 64 bytes and terminated with a CRC-8 (poly `0x39`, init `0x42`)
+- **Keep-alive**: the host must keep sending `AA 83` poll requests or the device stops streaming
+- **Data stream**: `AA 04` reports containing 4 samples of 15 bytes each, followed by a CRC-8
+
+#### FNB-48 Sample Format (15 bytes, little-endian)
+
+| Offset | Field | Type | Size | Scaling |
+|--------|-------|------|------|---------|
+| 0 | Voltage | uint32_le | 4 | Value / 100000.0 = Volts |
+| 4 | Current | uint32_le | 4 | Value / 100000.0 = Amperes |
+| 8 | D+ voltage | uint16_le | 2 | Value / 1000.0 = Volts |
+| 10 | D- voltage | uint16_le | 2 | Value / 1000.0 = Volts |
+| 12 | Unknown | uint8 | 1 | - |
+| 13 | Temperature | uint16_le | 2 | Value / 10.0 = degrees Celsius |
+
 ## Project Structure
 
 ```
@@ -140,6 +184,7 @@ plug-monitor/
 │   ├── device-manager.c/h  # Device detection and management
 │   ├── device-protocol.c/h # Protocol abstraction
 │   ├── qianli-a3.c/h       # Qianli A3 implementation
+│   ├── fnirsi-fnb48.c/h    # Fnirsi FNB-48 implementation
 │   ├── data-display.c/h    # Value display widgets
 │   ├── chart-view.c/h      # Chart visualization
 │   └── data-logger.c/h     # Data logging
