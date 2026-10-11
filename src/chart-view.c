@@ -35,6 +35,12 @@ struct _UsbTesterMonitorChartView {
     GdkRGBA power_color;
     GdkRGBA background_color;
     GdkRGBA grid_color;
+
+    /* Crosshair tooltip following the pointer */
+    GtkPopover *tooltip_popover;
+    GtkLabel *tooltip_label;
+    gint hover_index;   /* sample index under the pointer, -1 when outside */
+    gdouble hover_x;
 };
 
 G_DEFINE_FINAL_TYPE (UsbTesterMonitorChartView, usb_tester_monitor_chart_view, GTK_TYPE_DRAWING_AREA)
@@ -192,33 +198,46 @@ usb_tester_monitor_chart_view_snapshot (GtkWidget *widget,
     draw_series (cr, self->power_data, self->min_power, self->max_power,
                  width, height, &self->power_color);
 
+    /* Crosshair at the hovered sample */
+    if (self->hover_index >= 0) {
+        GdkRGBA crosshair;
+        gdk_rgba_parse (&crosshair, "#c0bfbc");
+        gdk_cairo_set_source_rgba (cr, &crosshair);
+        cairo_set_line_width (cr, 1.0);
+        cairo_set_dash (cr, (const double[]) { 4.0, 3.0 }, 2, 0.0);
+        cairo_move_to (cr, self->hover_x, PADDING);
+        cairo_line_to (cr, self->hover_x, height - PADDING);
+        cairo_stroke (cr);
+        cairo_set_dash (cr, NULL, 0, 0.0);
+    }
+
     /* Draw legend markers */
     draw_legend (cr);
 
     cairo_destroy (cr);
 }
 
-static gboolean
-usb_tester_monitor_chart_view_query_tooltip (GtkWidget *widget,
-                                             gint x,
-                                             gint y,
-                                             gboolean keyboard_tooltip,
-                                             GtkTooltip *tooltip)
+static void
+on_motion (GtkEventControllerMotion *controller,
+           gdouble x,
+           gdouble y,
+           gpointer user_data)
 {
-    UsbTesterMonitorChartView *self = USB_TESTER_MONITOR_CHART_VIEW (widget);
-    (void) y;
-    (void) keyboard_tooltip;
+    UsbTesterMonitorChartView *self = USB_TESTER_MONITOR_CHART_VIEW (user_data);
+    (void) controller;
 
+    GtkWidget *widget = GTK_WIDGET (self);
     gint width = gtk_widget_get_width (widget);
 
     if (self->voltage_data->len == 0 || width <= 2 * PADDING) {
-        return FALSE;
+        return;
     }
 
     /* Map the horizontal position to a sample index */
-    gdouble fraction = (gdouble) (x - PADDING) / (width - 2 * PADDING);
+    gdouble fraction = (gdouble) ((gint) x - PADDING) / (width - 2 * PADDING);
     fraction = CLAMP (fraction, 0.0, 1.0);
     gint index = (gint) round (fraction * (self->voltage_data->len - 1));
+    index = CLAMP (index, 0, (gint) self->voltage_data->len - 1);
 
     gdouble voltage = g_array_index (self->voltage_data, gdouble, index);
     gdouble current = g_array_index (self->current_data, gdouble, index);
@@ -233,10 +252,35 @@ usb_tester_monitor_chart_view_query_tooltip (GtkWidget *widget,
                          COLOR_VOLTAGE, voltage,
                          COLOR_CURRENT, current,
                          COLOR_POWER, power);
-    gtk_tooltip_set_markup (tooltip, markup);
+    gtk_label_set_markup (self->tooltip_label, markup);
     g_free (markup);
 
-    return TRUE;
+    /* Keep the popover anchored at the pointer */
+    GdkRectangle point = { (gint) x, (gint) y, 1, 1 };
+    gtk_popover_set_pointing_to (self->tooltip_popover, &point);
+
+    if (!gtk_widget_get_visible (GTK_WIDGET (self->tooltip_popover))) {
+        gtk_popover_popup (self->tooltip_popover);
+    }
+
+    self->hover_index = index;
+    self->hover_x = x;
+    gtk_widget_queue_draw (widget);
+}
+
+static void
+on_motion_leave (GtkEventControllerMotion *controller,
+                 gpointer user_data)
+{
+    UsbTesterMonitorChartView *self = USB_TESTER_MONITOR_CHART_VIEW (user_data);
+    (void) controller;
+
+    if (gtk_widget_get_visible (GTK_WIDGET (self->tooltip_popover))) {
+        gtk_popover_popdown (self->tooltip_popover);
+    }
+
+    self->hover_index = -1;
+    gtk_widget_queue_draw (GTK_WIDGET (self));
 }
 
 static void
@@ -247,7 +291,6 @@ usb_tester_monitor_chart_view_class_init (UsbTesterMonitorChartViewClass *klass)
 
     object_class->finalize = usb_tester_monitor_chart_view_finalize;
     widget_class->snapshot = usb_tester_monitor_chart_view_snapshot;
-    widget_class->query_tooltip = usb_tester_monitor_chart_view_query_tooltip;
 }
 
 static void
@@ -273,7 +316,28 @@ usb_tester_monitor_chart_view_init (UsbTesterMonitorChartView *self)
     gtk_widget_set_hexpand (GTK_WIDGET (self), TRUE);
     gtk_widget_set_vexpand (GTK_WIDGET (self), TRUE);
     gtk_widget_set_overflow (GTK_WIDGET (self), GTK_OVERFLOW_HIDDEN);
-    gtk_widget_set_has_tooltip (GTK_WIDGET (self), TRUE);
+
+    self->hover_index = -1;
+    self->hover_x = 0.0;
+
+    /* Tooltip popover following the pointer */
+    self->tooltip_label = GTK_LABEL (gtk_label_new (""));
+    gtk_widget_set_margin_start (GTK_WIDGET (self->tooltip_label), 8);
+    gtk_widget_set_margin_end (GTK_WIDGET (self->tooltip_label), 8);
+    gtk_widget_set_margin_top (GTK_WIDGET (self->tooltip_label), 8);
+    gtk_widget_set_margin_bottom (GTK_WIDGET (self->tooltip_label), 8);
+
+    self->tooltip_popover = GTK_POPOVER (gtk_popover_new ());
+    gtk_popover_set_autohide (self->tooltip_popover, FALSE);
+    gtk_popover_set_position (self->tooltip_popover, GTK_POS_TOP);
+    gtk_popover_set_child (self->tooltip_popover, GTK_WIDGET (self->tooltip_label));
+    gtk_widget_set_parent (GTK_WIDGET (self->tooltip_popover), GTK_WIDGET (self));
+
+    /* Show/move/hide the tooltip with the pointer */
+    GtkEventController *motion = gtk_event_controller_motion_new ();
+    g_signal_connect (motion, "motion", G_CALLBACK (on_motion), self);
+    g_signal_connect (motion, "leave", G_CALLBACK (on_motion_leave), self);
+    gtk_widget_add_controller (GTK_WIDGET (self), motion);
 }
 
 UsbTesterMonitorChartView *
