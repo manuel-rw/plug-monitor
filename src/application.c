@@ -24,6 +24,8 @@ static const char *app_css =
     "  opacity: 0.85;"
     "}"
     ".ripple-value { color: #35b042; font-weight: 700; }"
+    ".stats-card { font-size: 12px; }"
+    ".stats-value { font-weight: 700; }"
     ".device-panel { background-color: @sidebar_bg_color; }"
     ".device-panel-row { padding: 8px 12px; }";
 

@@ -69,6 +69,8 @@ void usb_tester_monitor_device_manager_disconnect_device (UsbTesterMonitorDevice
 typedef void (*UsbTesterMonitorManagerReadingCallback) (const gchar *identifier,
                                                         gdouble voltage,
                                                         gdouble current,
+                                                        gdouble temperature,
+                                                        gdouble battery,
                                                         gpointer user_data);
 
 void usb_tester_monitor_device_manager_set_reading_callback (UsbTesterMonitorDeviceManager *self,

@@ -241,6 +241,7 @@ usb_tester_monitor_device_manager_on_reading (UsbTesterMonitorDeviceProtocol *pr
         const gchar *identifier = g_object_get_data (G_OBJECT (protocol),
                                                     "device-identifier");
         self->reading_callback (identifier, reading->voltage, reading->current,
+                                 reading->temperature, reading->battery,
                                  self->reading_user_data);
     }
 }

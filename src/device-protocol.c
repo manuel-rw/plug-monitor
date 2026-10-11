@@ -4,6 +4,7 @@
 #include <gio/gio.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <math.h>
 #include <string.h>
 #include <termios.h>
 #include <unistd.h>
@@ -136,6 +137,8 @@ usb_tester_monitor_device_protocol_on_reading (gdouble voltage,
         reading.voltage = voltage;
         reading.current = current;
         reading.power = voltage * current;
+        reading.temperature = NAN; /* not provided by the Qianli A3 protocol */
+        reading.battery = NAN;     /* not provided by the Qianli A3 protocol */
         reading.timestamp = g_get_real_time ();
         self->data_callback (self, &reading, self->user_data);
     }
