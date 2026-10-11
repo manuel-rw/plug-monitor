@@ -1,6 +1,7 @@
 #include "stats-card.h"
 #include <gtk/gtk.h>
 #include <glib.h>
+#include <math.h>
 
 struct _UsbTesterMonitorStatsCard {
     GtkBox parent_instance;
@@ -8,6 +9,7 @@ struct _UsbTesterMonitorStatsCard {
     GtkLabel *voltage_value;
     GtkLabel *current_value;
     GtkLabel *ripple_value;
+    GtkLabel *dp_dn_value;
 };
 
 G_DEFINE_FINAL_TYPE (UsbTesterMonitorStatsCard, usb_tester_monitor_stats_card, GTK_TYPE_BOX)
@@ -36,7 +38,7 @@ usb_tester_monitor_stats_card_init (UsbTesterMonitorStatsCard *self)
     gtk_widget_set_margin_end (GTK_WIDGET (self), 12);
 
     GtkGrid *grid = GTK_GRID (gtk_grid_new ());
-    gtk_grid_set_column_spacing (grid, 48);
+    gtk_grid_set_column_spacing (grid, 36);
     gtk_grid_set_row_spacing (grid, 2);
     gtk_grid_set_column_homogeneous (grid, TRUE);
     gtk_widget_set_halign (GTK_WIDGET (grid), GTK_ALIGN_FILL);
@@ -68,6 +70,14 @@ usb_tester_monitor_stats_card_init (UsbTesterMonitorStatsCard *self)
     gtk_label_set_ellipsize (self->ripple_value, PANGO_ELLIPSIZE_END);
     gtk_label_set_xalign (self->ripple_value, 0.0);
     gtk_grid_attach (grid, GTK_WIDGET (self->ripple_value), 2, 1, 1, 1);
+
+    /* USB data lines (devices without this channel keep the dashes) */
+    gtk_grid_attach (grid, GTK_WIDGET (make_title ("Data lines")), 3, 0, 1, 1);
+    self->dp_dn_value = GTK_LABEL (gtk_label_new ("D+ \u2014 V  D\u2212 \u2014 V"));
+    gtk_widget_add_css_class (GTK_WIDGET (self->dp_dn_value), "stats-value");
+    gtk_label_set_ellipsize (self->dp_dn_value, PANGO_ELLIPSIZE_END);
+    gtk_label_set_xalign (self->dp_dn_value, 0.0);
+    gtk_grid_attach (grid, GTK_WIDGET (self->dp_dn_value), 3, 1, 1, 1);
 }
 
 static void
@@ -113,5 +123,22 @@ usb_tester_monitor_stats_card_set_ripple (UsbTesterMonitorStatsCard *self,
 
     gchar *text = g_strdup_printf ("%.1f mV", ripple_voltage * 1000.0);
     gtk_label_set_text (self->ripple_value, text);
+    g_free (text);
+}
+
+void
+usb_tester_monitor_stats_card_set_dp_dn (UsbTesterMonitorStatsCard *self,
+                                         gdouble dp_voltage,
+                                         gdouble dn_voltage)
+{
+    g_return_if_fail (USB_TESTER_MONITOR_IS_STATS_CARD (self));
+
+    if (isnan (dp_voltage) || isnan (dn_voltage)) {
+        gtk_label_set_text (self->dp_dn_value, "D+ \u2014 V  D\u2212 \u2014 V");
+        return;
+    }
+
+    gchar *text = g_strdup_printf ("D+ %.3f V  D\u2212 %.3f V", dp_voltage, dn_voltage);
+    gtk_label_set_text (self->dp_dn_value, text);
     g_free (text);
 }

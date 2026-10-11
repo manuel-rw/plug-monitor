@@ -11,9 +11,19 @@
 #define QIANLI_A3_USB_VENDOR_ID "2e88"
 #define QIANLI_A3_USB_PRODUCT_ID "4603"
 
-/* USB IDs of the Fnirsi FNB-48 (STMicroelectronics HID) */
-#define FNIRSI_FNB48_USB_VENDOR_ID "0483"
-#define FNIRSI_FNB48_USB_PRODUCT_ID "003a"
+/* USB IDs of the Fnirsi HID protocol family. FNB-48 and C1 are polled with
+ * the AA 83 request; FNB-48S and FNB-58 use AA 82 (see device-protocol.c). */
+static const struct {
+    const gchar *vendor;
+    const gchar *product;
+    const gchar *name;
+    UsbTesterMonitorDeviceType type;
+} FNIRSI_USB_IDS[] = {
+    { "0483", "003a", "Fnirsi FNB-48",  USB_TESTER_MONITOR_DEVICE_TYPE_FNIRSI_FNB48  },
+    { "0483", "003b", "Fnirsi C1",      USB_TESTER_MONITOR_DEVICE_TYPE_FNIRSI_C1      },
+    { "2e3c", "0049", "Fnirsi FNB-48S", USB_TESTER_MONITOR_DEVICE_TYPE_FNIRSI_FNB48S },
+    { "2e3c", "5558", "Fnirsi FNB-58",  USB_TESTER_MONITOR_DEVICE_TYPE_FNIRSI_FNB58  },
+};
 
 struct _UsbTesterMonitorDeviceManager {
     GObject parent_instance;
@@ -234,7 +244,7 @@ usb_tester_monitor_device_manager_scan_devices (UsbTesterMonitorDeviceManager *s
 
     g_dir_close (dir);
 
-    /* Fnirsi FNB-48: HID device, exposed as a hidraw node instead of a tty */
+    /* Fnirsi meters: HID devices, exposed as hidraw nodes instead of a tty */
     dir = g_dir_open ("/sys/class/hidraw", 0, NULL);
     if (dir == NULL) {
         return;
@@ -248,14 +258,17 @@ usb_tester_monitor_device_manager_scan_devices (UsbTesterMonitorDeviceManager *s
             continue;
         }
 
-        if (g_strcmp0 (vendor, FNIRSI_FNB48_USB_VENDOR_ID) == 0 &&
-            g_strcmp0 (product, FNIRSI_FNB48_USB_PRODUCT_ID) == 0) {
-            gchar *identifier = g_strdup_printf ("/dev/%s", name);
-            g_list_store_append (self->devices,
-                                 usb_tester_monitor_device_new ("Fnirsi FNB-48",
-                                                                identifier,
-                                                                USB_TESTER_MONITOR_DEVICE_TYPE_FNIRSI_FNB48));
-            g_free (identifier);
+        for (gsize i = 0; i < G_N_ELEMENTS (FNIRSI_USB_IDS); i++) {
+            if (g_strcmp0 (vendor, FNIRSI_USB_IDS[i].vendor) == 0 &&
+                g_strcmp0 (product, FNIRSI_USB_IDS[i].product) == 0) {
+                gchar *identifier = g_strdup_printf ("/dev/%s", name);
+                g_list_store_append (self->devices,
+                                     usb_tester_monitor_device_new (FNIRSI_USB_IDS[i].name,
+                                                                    identifier,
+                                                                    FNIRSI_USB_IDS[i].type));
+                g_free (identifier);
+                break;
+            }
         }
 
         g_free (vendor);
@@ -277,9 +290,7 @@ usb_tester_monitor_device_manager_on_reading (UsbTesterMonitorDeviceProtocol *pr
          * so readings can be routed to the right device in the UI. */
         const gchar *identifier = g_object_get_data (G_OBJECT (protocol),
                                                     "device-identifier");
-        self->reading_callback (identifier, reading->voltage, reading->current,
-                                 reading->temperature, reading->battery,
-                                 self->reading_user_data);
+        self->reading_callback (identifier, reading, self->reading_user_data);
     }
 }
 
@@ -319,8 +330,21 @@ usb_tester_monitor_device_manager_connect_device (UsbTesterMonitorDeviceManager 
     }
 
     const gchar *protocol_type = "qianli-a3";
-    if (device->type == USB_TESTER_MONITOR_DEVICE_TYPE_FNIRSI_FNB48) {
-        protocol_type = "fnirsi-fnb48";
+    if (USB_TESTER_MONITOR_DEVICE_TYPE_IS_FNIRSI (device->type)) {
+        switch (device->type) {
+        case USB_TESTER_MONITOR_DEVICE_TYPE_FNIRSI_C1:
+            protocol_type = "fnirsi-c1";
+            break;
+        case USB_TESTER_MONITOR_DEVICE_TYPE_FNIRSI_FNB48S:
+            protocol_type = "fnirsi-fnb48s";
+            break;
+        case USB_TESTER_MONITOR_DEVICE_TYPE_FNIRSI_FNB58:
+            protocol_type = "fnirsi-fnb58";
+            break;
+        default:
+            protocol_type = "fnirsi-fnb48";
+            break;
+        }
     }
 
     UsbTesterMonitorDeviceProtocol *protocol =

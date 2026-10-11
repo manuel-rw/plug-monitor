@@ -34,6 +34,8 @@ G_DECLARE_FINAL_TYPE (UsbTesterMonitorFnirsiFnb48, usb_tester_monitor_fnirsi_fnb
 typedef void (*UsbTesterMonitorFnirsiReadingCallback) (gdouble voltage,
                                                       gdouble current,
                                                       gdouble temperature,
+                                                      gdouble dp_voltage,
+                                                      gdouble dn_voltage,
                                                       gpointer user_data);
 
 UsbTesterMonitorFnirsiFnb48 *usb_tester_monitor_fnirsi_fnb48_new (const gchar *device_path);

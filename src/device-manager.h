@@ -3,6 +3,8 @@
 #include <glib-object.h>
 #include <gio/gio.h>
 
+#include "device-protocol.h"
+
 G_BEGIN_DECLS
 
 #define USB_TESTER_MONITOR_TYPE_DEVICE_MANAGER (usb_tester_monitor_device_manager_get_type())
@@ -29,9 +31,18 @@ typedef enum {
 
 typedef enum {
     USB_TESTER_MONITOR_DEVICE_TYPE_QIANLI_A3,
+    /* Fnirsi device types must stay contiguous: the UI treats this range
+     * as "the Fnirsi protocol family" (temperature and D+/D- channels) */
     USB_TESTER_MONITOR_DEVICE_TYPE_FNIRSI_FNB48,
+    USB_TESTER_MONITOR_DEVICE_TYPE_FNIRSI_C1,
+    USB_TESTER_MONITOR_DEVICE_TYPE_FNIRSI_FNB48S,
+    USB_TESTER_MONITOR_DEVICE_TYPE_FNIRSI_FNB58,
     USB_TESTER_MONITOR_DEVICE_TYPE_UNKNOWN
 } UsbTesterMonitorDeviceType;
+
+#define USB_TESTER_MONITOR_DEVICE_TYPE_IS_FNIRSI(type) \
+    ((type) >= USB_TESTER_MONITOR_DEVICE_TYPE_FNIRSI_FNB48 && \
+     (type) <= USB_TESTER_MONITOR_DEVICE_TYPE_FNIRSI_FNB58)
 
 GType usb_tester_monitor_device_get_type (void);
 
@@ -70,10 +81,7 @@ void usb_tester_monitor_device_manager_disconnect_device (UsbTesterMonitorDevice
                                                            const gchar *identifier);
 
 typedef void (*UsbTesterMonitorManagerReadingCallback) (const gchar *identifier,
-                                                        gdouble voltage,
-                                                        gdouble current,
-                                                        gdouble temperature,
-                                                        gdouble battery,
+                                                        const UsbTesterMonitorReading *reading,
                                                         gpointer user_data);
 
 void usb_tester_monitor_device_manager_set_reading_callback (UsbTesterMonitorDeviceManager *self,

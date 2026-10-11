@@ -23,6 +23,8 @@ typedef struct {
     /* Extra channels: NAN when the device does not provide them */
     gdouble temperature; /* degrees Celsius */
     gdouble battery;     /* percent, 0-100 */
+    gdouble dp_voltage;  /* USB D+ line voltage */
+    gdouble dn_voltage;  /* USB D- line voltage */
     guint64 timestamp;
 } UsbTesterMonitorReading;
 

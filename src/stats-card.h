@@ -24,4 +24,9 @@ void usb_tester_monitor_stats_card_set_min_max_current (UsbTesterMonitorStatsCar
 void usb_tester_monitor_stats_card_set_ripple (UsbTesterMonitorStatsCard *self,
                                               gdouble ripple_voltage);
 
+/* USB data line voltages; NAN for either value leaves a dash */
+void usb_tester_monitor_stats_card_set_dp_dn (UsbTesterMonitorStatsCard *self,
+                                               gdouble dp_voltage,
+                                               gdouble dn_voltage);
+
 G_END_DECLS

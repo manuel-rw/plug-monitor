@@ -6,8 +6,14 @@
 #define RULE_DEST_PATH "/etc/udev/rules.d/90-usb-tester-monitor-fnb48.rules"
 
 static const gchar *rule_contents =
-    "# Fnirsi FNB-48 (0483:003a) - installed by USB Tester Monitor\n"
+    "# Fnirsi USB testers (HID protocol family) - installed by USB Tester Monitor\n"
     "SUBSYSTEM==\"hidraw\", ATTRS{idVendor}==\"0483\", ATTRS{idProduct}==\"003a\", "
+    "MODE=\"0660\", GROUP=\"dialout\", TAG+=\"uaccess\"\n"
+    "SUBSYSTEM==\"hidraw\", ATTRS{idVendor}==\"0483\", ATTRS{idProduct}==\"003b\", "
+    "MODE=\"0660\", GROUP=\"dialout\", TAG+=\"uaccess\"\n"
+    "SUBSYSTEM==\"hidraw\", ATTRS{idVendor}==\"2e3c\", ATTRS{idProduct}==\"0049\", "
+    "MODE=\"0660\", GROUP=\"dialout\", TAG+=\"uaccess\"\n"
+    "SUBSYSTEM==\"hidraw\", ATTRS{idVendor}==\"2e3c\", ATTRS{idProduct}==\"5558\", "
     "MODE=\"0660\", GROUP=\"dialout\", TAG+=\"uaccess\"\n";
 
 static const gchar *install_command =

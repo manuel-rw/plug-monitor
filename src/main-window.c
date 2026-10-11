@@ -28,6 +28,7 @@ enum {
     REC_POWER       = 1 << 2,
     REC_TEMPERATURE = 1 << 3,
     REC_BATTERY     = 1 << 4,
+    REC_DATA_LINES  = 1 << 5,
 };
 
 typedef struct {
@@ -37,6 +38,8 @@ typedef struct {
     gdouble power;
     gdouble temperature;
     gdouble battery;
+    gdouble dp_voltage;
+    gdouble dn_voltage;
 } RecordSample;
 
 typedef struct {
@@ -287,6 +290,7 @@ write_recording_csv (UsbTesterMonitorMainWindow *self,
     if (self->recording_channels & REC_POWER) g_string_append (csv, ",power_W");
     if (self->recording_channels & REC_TEMPERATURE) g_string_append (csv, ",temperature_C");
     if (self->recording_channels & REC_BATTERY) g_string_append (csv, ",battery_pct");
+    if (self->recording_channels & REC_DATA_LINES) g_string_append (csv, ",dp_V,dn_V");
     g_string_append (csv, "\n");
 
     for (guint i = 0; i < self->recording_samples->len; i++) {
@@ -299,6 +303,7 @@ write_recording_csv (UsbTesterMonitorMainWindow *self,
         if (self->recording_channels & REC_POWER) g_string_append_printf (csv, ",%.4f", s.power);
         if (self->recording_channels & REC_TEMPERATURE) g_string_append_printf (csv, ",%.2f", s.temperature);
         if (self->recording_channels & REC_BATTERY) g_string_append_printf (csv, ",%.1f", s.battery);
+        if (self->recording_channels & REC_DATA_LINES) g_string_append_printf (csv, ",%.3f,%.3f", s.dp_voltage, s.dn_voltage);
         g_string_append (csv, "\n");
     }
 
@@ -405,6 +410,8 @@ on_record_dialog_response (AdwAlertDialog *dialog,
     if (gtk_check_button_get_active (check)) channels |= REC_TEMPERATURE;
     check = g_object_get_data (G_OBJECT (dialog), "check-battery");
     if (gtk_check_button_get_active (check)) channels |= REC_BATTERY;
+    check = g_object_get_data (G_OBJECT (dialog), "check-data-lines");
+    if (gtk_check_button_get_active (check)) channels |= REC_DATA_LINES;
 
     spin = g_object_get_data (G_OBJECT (dialog), "spin-duration");
     guint duration = (guint) gtk_spin_button_get_value_as_int (spin);
@@ -442,6 +449,12 @@ show_record_dialog (UsbTesterMonitorMainWindow *self)
     gtk_label_set_xalign (channels_title, 0.0);
     gtk_box_append (box, GTK_WIDGET (channels_title));
 
+    /* Channels offered depend on what the selected device provides */
+    DevicePage *page = active_page (self);
+    gboolean has_fnirsi_channels =
+        page != NULL &&
+        USB_TESTER_MONITOR_DEVICE_TYPE_IS_FNIRSI (page->device->type);
+
     struct {
         const gchar *id;
         const gchar *label;
@@ -451,8 +464,9 @@ show_record_dialog (UsbTesterMonitorMainWindow *self)
         { "check-voltage",     "Voltage",     TRUE,  TRUE  },
         { "check-current",     "Current",     TRUE,  TRUE  },
         { "check-power",       "Power",       FALSE, TRUE  },
-        { "check-temperature", "Temperature", FALSE, FALSE },
+        { "check-temperature", "Temperature", FALSE, has_fnirsi_channels },
         { "check-battery",     "Battery",     FALSE, FALSE },
+        { "check-data-lines",  "D+ / D\u2212", FALSE, has_fnirsi_channels },
     };
 
     for (gsize i = 0; i < G_N_ELEMENTS (channel_defs); i++) {
@@ -528,10 +542,7 @@ on_record_button_clicked (GtkButton *button,
 
 static void
 on_reading (const gchar *identifier,
-            gdouble voltage,
-            gdouble current,
-            gdouble temperature,
-            gdouble battery,
+            const UsbTesterMonitorReading *reading,
             gpointer user_data)
 {
     UsbTesterMonitorMainWindow *self = USB_TESTER_MONITOR_MAIN_WINDOW (user_data);
@@ -541,7 +552,9 @@ on_reading (const gchar *identifier,
         return;
     }
 
-    gdouble power = voltage * current;
+    gdouble voltage = reading->voltage;
+    gdouble current = reading->current;
+    gdouble power = reading->power;
 
     /* Track min/max */
     if (!page->has_data) {
@@ -585,10 +598,13 @@ on_reading (const gchar *identifier,
     usb_tester_monitor_chart_view_add_reading (page->chart_view, voltage, current);
 
     /* Extra channels */
-    page->temperature = temperature;
-    page->battery = battery;
+    page->temperature = reading->temperature;
+    page->battery = reading->battery;
+    usb_tester_monitor_stats_card_set_dp_dn (page->stats_card,
+                                             reading->dp_voltage,
+                                             reading->dn_voltage);
 
-    if (!isnan (battery)) {
+    if (!isnan (reading->battery)) {
         if (page->row_battery == NULL) {
             page->row_battery = GTK_LABEL (gtk_label_new (""));
             gtk_label_set_xalign (page->row_battery, 0.0);
@@ -596,14 +612,14 @@ on_reading (const gchar *identifier,
             gtk_widget_add_css_class (GTK_WIDGET (page->row_battery), "dim-label");
             gtk_box_append (page->row_name_box, GTK_WIDGET (page->row_battery));
         }
-        gchar *text = g_strdup_printf ("Battery %.0f %%", battery);
+        gchar *text = g_strdup_printf ("Battery %.0f %%", reading->battery);
         gtk_label_set_text (page->row_battery, text);
         g_free (text);
     }
 
     /* Temperature of the selected device is shown in the header */
     if (g_strcmp0 (identifier, self->active_identifier) == 0) {
-        temp_label_set_value (self, temperature);
+        temp_label_set_value (self, reading->temperature);
     }
 
     /* Capture samples while a recording is running for this device */
@@ -614,8 +630,10 @@ on_reading (const gchar *identifier,
             .voltage = voltage,
             .current = current,
             .power = power,
-            .temperature = temperature,
-            .battery = battery,
+            .temperature = reading->temperature,
+            .battery = reading->battery,
+            .dp_voltage = reading->dp_voltage,
+            .dn_voltage = reading->dn_voltage,
         };
         g_array_append_vals (self->recording_samples, &sample, 1);
     }
@@ -808,7 +826,7 @@ on_connect_button_toggled (GtkToggleButton *button,
             connect_button_set_connected (self, TRUE);
         } else if (error != NULL &&
                    g_error_matches (error, G_IO_ERROR, G_IO_ERROR_PERMISSION_DENIED) &&
-                   page->device->type == USB_TESTER_MONITOR_DEVICE_TYPE_FNIRSI_FNB48) {
+                   USB_TESTER_MONITOR_DEVICE_TYPE_IS_FNIRSI (page->device->type)) {
             g_error_free (error);
 
             /* Release the toggle; the retry after granting re-activates it */
@@ -844,6 +862,7 @@ on_connect_button_toggled (GtkToggleButton *button,
         usb_tester_monitor_stats_card_set_min_max_voltage (page->stats_card, 0.0, 0.0);
         usb_tester_monitor_stats_card_set_min_max_current (page->stats_card, 0.0, 0.0);
         usb_tester_monitor_stats_card_set_ripple (page->stats_card, 0.0);
+        usb_tester_monitor_stats_card_set_dp_dn (page->stats_card, NAN, NAN);
 
         page->has_data = FALSE;
         page->min_voltage = 0.0;
@@ -1073,12 +1092,19 @@ on_info_button_clicked (GtkButton *button,
     UsbTesterMonitorMainWindow *self = USB_TESTER_MONITOR_MAIN_WINDOW (user_data);
 
     const gchar *developers[] = { "Manuel https://github.com/manuel-rw", NULL };
+    const gchar *libraries[] = {
+        "GTK 4 \u2014 https://gtk.org",
+        "libadwaita \u2014 https://gitlab.gnome.org/GNOME/libadwaita",
+        "GLib, GObject, GIO \u2014 https://docs.gtk.org/glib",
+        NULL
+    };
 
     AdwAboutDialog *about = ADW_ABOUT_DIALOG (adw_about_dialog_new ());
     adw_about_dialog_set_application_name (about, "USB Tester Monitor");
     adw_about_dialog_set_version (about, "0.1.0");
     adw_about_dialog_set_developer_name (about, "Manuel");
     adw_about_dialog_set_developers (about, developers);
+    adw_about_dialog_add_credit_section (about, "Built with", libraries);
     adw_about_dialog_set_comments (about,
                                    "Monitor USB power tester devices in real time.\n\n"
                                    "Supported devices:\n"

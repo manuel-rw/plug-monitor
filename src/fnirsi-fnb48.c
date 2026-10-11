@@ -128,10 +128,14 @@ usb_tester_monitor_fnirsi_fnb48_emit_sample (UsbTesterMonitorFnirsiFnb48 *self,
 
     gdouble voltage = (gdouble) read_le32 (sample + 0) / FNIRSI_FNB48_VOLTAGE_SCALE;
     gdouble current = (gdouble) read_le32 (sample + 4) / FNIRSI_FNB48_CURRENT_SCALE;
+    gdouble dp_voltage = (gdouble) read_le16 (sample + 8) / 1000.0;
+    gdouble dn_voltage = (gdouble) read_le16 (sample + 10) / 1000.0;
     gdouble temperature = (gdouble) read_le16 (sample + 13) / FNIRSI_FNB48_TEMP_SCALE;
 
     if (self->reading_callback) {
-        self->reading_callback (voltage, current, temperature, self->reading_user_data);
+        self->reading_callback (voltage, current, temperature,
+                                 dp_voltage, dn_voltage,
+                                 self->reading_user_data);
     }
 }
 
