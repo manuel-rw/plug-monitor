@@ -4,7 +4,7 @@
     <requires lib="adwaita" version="1.4.0"/>
     
     <template class="UsbTesterMonitorMainWindow" parent="AdwApplicationWindow">
-        <property name="title">USB Tester Monitor</property>
+        <property name="title">Plug</property>
         <property name="default-width">800</property>
         <property name="default-height">600</property>
         
@@ -12,7 +12,7 @@
             <object class="GtkHeaderBar">
                 <property name="title-widget">
                     <object class="GtkLabel">
-                        <property name="label">USB Tester Monitor</property>
+                        <property name="label">Plug</property>
                     </object>
                 </property>
                 <property name="show-title-buttons">True</property>

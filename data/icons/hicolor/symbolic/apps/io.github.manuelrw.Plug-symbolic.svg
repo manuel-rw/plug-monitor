@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+  <title>Plug</title>
+  <style>
+    .ColorScheme-Text { color: #2e3436; }
+  </style>
+  <path class="ColorScheme-Text" fill="currentColor" fill-rule="evenodd"
+        d="M 5 1 C 3.34 1 2 2.34 2 4 v 3 c 0 1.66 1.34 3 3 3 h 1 v 4 c 0 0.55 0.45 1 1 1 h 2 c 0.55 0 1 -0.45 1 -1 v -4 h 1 c 1.66 0 3 -1.34 3 -3 V 4 C 14 2.34 12.66 1 11 1 Z M 6 3 h 4 v 5 H 6 Z"/>
+</svg>

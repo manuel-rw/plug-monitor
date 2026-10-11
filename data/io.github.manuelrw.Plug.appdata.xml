@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+    <id>io.github.manuelrw.Plug</id>
+    <metadata_license>CC0-1.0</metadata_license>
+    <project_license>GPL-3.0-or-later</project_license>
+    <name>Plug</name>
+    <summary>Monitor USB power tester devices</summary>
+    <description>
+        <p>Plug is a GNOME application for monitoring USB power tester devices.
+        It provides real-time voltage, current, power, temperature and USB data-line
+        readings, data visualization, and logging capabilities.</p>
+
+        <p>Supported devices:</p>
+        <ul>
+            <li>Qianli iBridge A3</li>
+            <li>Fnirsi FNB-48, FNB-48S, FNB-58, C1</li>
+            <li>ChargerLAB POWER-Z KM002C, KM003C</li>
+        </ul>
+
+        <p>Features:</p>
+        <ul>
+            <li>Real-time voltage and current monitoring</li>
+            <li>Support for multiple devices at once</li>
+            <li>Data visualization with charts</li>
+            <li>Temperature and D+/D- data line readout</li>
+            <li>Logging and CSV export</li>
+            <li>GNOME 50 and Adwaita design</li>
+        </ul>
+    </description>
+    <launchable type="desktop-id">io.github.manuelrw.Plug.desktop</launchable>
+    <url type="homepage">https://github.com/manuel-rw/plug-monitor</url>
+    <url type="bugtracker">https://github.com/manuel-rw/plug-monitor/issues</url>
+    <developer id="io.github.manuelrw">
+        <name>Manuel</name>
+    </developer>
+    <releases>
+        <release version="@version@" date="2024-01-01">
+            <description>
+                <p>Initial release with support for Qianli iBridge A3 and Fnirsi USB testers.</p>
+            </description>
+        </release>
+    </releases>
+    <content_rating type="oars-1.1"/>
+</component>

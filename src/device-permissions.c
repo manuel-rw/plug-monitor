@@ -2,11 +2,11 @@
 #include <gio/gio.h>
 #include <glib.h>
 
-#define RULE_TMP_PATH "/tmp/usb-tester-monitor-fnb48.rules"
-#define RULE_DEST_PATH "/etc/udev/rules.d/90-usb-tester-monitor-fnb48.rules"
+#define RULE_TMP_PATH "/tmp/plug-usb-testers.rules"
+#define RULE_DEST_PATH "/etc/udev/rules.d/90-plug-usb-testers.rules"
 
 static const gchar *rule_contents =
-    "# Fnirsi USB testers (HID protocol family) - installed by USB Tester Monitor\n"
+    "# Fnirsi USB testers (HID protocol family) - installed by Plug\n"
     "SUBSYSTEM==\"hidraw\", ATTRS{idVendor}==\"0483\", ATTRS{idProduct}==\"003a\", "
     "MODE=\"0660\", GROUP=\"dialout\", TAG+=\"uaccess\"\n"
     "SUBSYSTEM==\"hidraw\", ATTRS{idVendor}==\"0483\", ATTRS{idProduct}==\"003b\", "
@@ -15,7 +15,7 @@ static const gchar *rule_contents =
     "MODE=\"0660\", GROUP=\"dialout\", TAG+=\"uaccess\"\n"
     "SUBSYSTEM==\"hidraw\", ATTRS{idVendor}==\"2e3c\", ATTRS{idProduct}==\"5558\", "
     "MODE=\"0660\", GROUP=\"dialout\", TAG+=\"uaccess\"\n"
-    "# ChargerLAB POWER-Z meters - installed by USB Tester Monitor\n"
+    "# ChargerLAB POWER-Z meters - installed by Plug\n"
     "SUBSYSTEM==\"hidraw\", ATTRS{idVendor}==\"5fc9\", ATTRS{idProduct}==\"0061\", "
     "MODE=\"0660\", GROUP=\"dialout\", TAG+=\"uaccess\"\n"
     "SUBSYSTEM==\"hidraw\", ATTRS{idVendor}==\"5fc9\", ATTRS{idProduct}==\"0063\", "

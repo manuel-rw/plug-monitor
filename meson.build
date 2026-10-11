@@ -1,4 +1,4 @@
-project('usb-tester-monitor', 'c',
+project('plug', 'c',
     version: '0.1.0',
     license: 'GPL-3.0-or-later')
 
@@ -14,29 +14,29 @@ math_dep = meson.get_compiler('c').find_library('m', required: false)
 
 # Compiler flags
 add_project_arguments(
-    '-DGETTEXT_PACKAGE="usb-tester-monitor"',
+    '-DGETTEXT_PACKAGE="plug"',
     '-DLOCALEDIR="' + get_option('localedir') + '"',
     language: 'c'
 )
 
 # Resources
 resource_files = files(
-    'data/org.gnome.USBTesterMonitor.gresource.xml',
-    'data/org.gnome.USBTesterMonitor.desktop.in',
-    'data/org.gnome.USBTesterMonitor.appdata.xml',
+    'data/io.github.manuelrw.Plug.gresource.xml',
+    'data/io.github.manuelrw.Plug.desktop.in',
+    'data/io.github.manuelrw.Plug.appdata.xml',
 )
 
 # GResource compilation (commented out for now - UI files will be loaded at runtime)
 # gresource = import('gnome')
 # gresource_data = gresource.compile_resources(
-#     'usb-tester-monitor',
-#     'data/org.gnome.USBTesterMonitor.gresource.xml',
+#     'plug',
+#     'data/io.github.manuelrw.Plug.gresource.xml',
 #     source_dir: meson.current_source_dir(),
 #     c_name: 'usb_tester_monitor'
 # )
 
 # Executable
-executable('usb-tester-monitor',
+executable('plug',
     sources: [
         'src/main.c',
         'src/application.c',
@@ -70,34 +70,30 @@ executable('usb-tester-monitor',
 
 
 
-# Install desktop and appdata files
+# Install desktop and metainfo files
 desktop_file = configure_file(
-    input: 'data/org.gnome.USBTesterMonitor.desktop.in',
-    output: 'org.gnome.USBTesterMonitor.desktop',
+    input: 'data/io.github.manuelrw.Plug.desktop.in',
+    output: 'io.github.manuelrw.Plug.desktop',
     configuration: {'version': meson.project_version()},
     install: true,
     install_dir: get_option('datadir') / 'applications'
 )
 
 appdata_file = configure_file(
-    input: 'data/org.gnome.USBTesterMonitor.appdata.xml',
-    output: 'org.gnome.USBTesterMonitor.appdata.xml',
+    input: 'data/io.github.manuelrw.Plug.appdata.xml',
+    output: 'io.github.manuelrw.Plug.appdata.xml',
     configuration: {'version': meson.project_version()},
     install: true,
-    install_dir: get_option('datadir') / 'appdata'
+    install_dir: get_option('datadir') / 'metainfo'
 )
 
-# Install icons (commented out - icons directory removed for now)
-# icons = [
-#     'data/icons/hicolor/16x16/apps/org.gnome.USBTesterMonitor.svg',
-#     'data/icons/hicolor/32x32/apps/org.gnome.USBTesterMonitor.svg',
-#     'data/icons/hicolor/48x48/apps/org.gnome.USBTesterMonitor.svg',
-#     'data/icons/hicolor/64x64/apps/org.gnome.USBTesterMonitor.svg',
-#     'data/icons/hicolor/128x128/apps/org.gnome.USBTesterMonitor.svg',
-#     'data/icons/hicolor/256x256/apps/org.gnome.USBTesterMonitor.svg',
-#     'data/icons/hicolor/scalable/apps/org.gnome.USBTesterMonitor.svg',
-# ]
-#
-# foreach icon : icons
-#     install_data(icon, install_dir: get_option('datadir') / 'icons/hicolor/' / icon.split('/')[-3] + 'x' + icon.split('/')[-2] / 'apps')
-# endforeach
+# Install app icons
+install_data(
+    'data/icons/hicolor/scalable/apps/io.github.manuelrw.Plug.svg',
+    install_dir: get_option('datadir') / 'icons/hicolor/scalable/apps',
+)
+
+install_data(
+    'data/icons/hicolor/symbolic/apps/io.github.manuelrw.Plug-symbolic.svg',
+    install_dir: get_option('datadir') / 'icons/hicolor/symbolic/apps',
+)

@@ -1,4 +1,4 @@
-# Plug Monitor - USB Tester Monitor
+# Plug
 
 A GNOME desktop application for monitoring USB tester devices like the Qianli iBridge A3, built with GTK4 and Adwaita using the GNOME 50 design language.
 
@@ -69,10 +69,10 @@ sudo ninja -C build install
 
 ```bash
 # Run from build directory
-./build/usb-tester-monitor
+./build/plug
 
 # Or after installation
-usb-tester-monitor
+plug
 ```
 
 ## Usage
@@ -200,9 +200,9 @@ plug-monitor/
 │   ├── chart-view.c/h      # Chart visualization
 │   └── data-logger.c/h     # Data logging
 └── data/                   # Resources
-    ├── org.gnome.PlugMonitor.gresource.xml
-    ├── org.gnome.PlugMonitor.desktop.in
-    ├── org.gnome.PlugMonitor.appdata.xml
+    ├── io.github.manuelrw.Plug.gresource.xml
+    ├── io.github.manuelrw.Plug.desktop.in
+    ├── io.github.manuelrw.Plug.appdata.xml
     ├── css/                # Stylesheets
     │   └── style.css
     └── ui/                 # UI templates
@@ -226,10 +226,10 @@ Open the preferences dialog from the menu to configure:
 
 ```bash
 # Run with specific device
-usb-tester-monitor /dev/ttyUSB0
+plug /dev/ttyUSB0
 
 # Show help
-usb-tester-monitor --help
+plug --help
 ```
 
 ## Data Logging
@@ -265,7 +265,7 @@ timestamp,voltage,current,power
 ### Application Crashes
 
 1. Check for error messages in the terminal
-2. Run with debug: `G_MESSAGES_DEBUG=all ./build/usb-tester-monitor`
+2. Run with debug: `G_MESSAGES_DEBUG=all ./build/plug`
 3. Report issues on GitHub with logs
 
 ## Development
@@ -278,7 +278,7 @@ meson setup build --buildtype=debug
 
 # Build and run
 ninja -C build
-./build/usb-tester-monitor
+./build/plug
 ```
 
 ### Adding New Device Support

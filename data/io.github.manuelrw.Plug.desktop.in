@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Plug
+Comment=Monitor USB power tester devices
+Exec=plug
+Icon=io.github.manuelrw.Plug
+Terminal=false
+Categories=Utility;Electronics;HardwareSettings;
+StartupWMClass=plug
+Version=@version@

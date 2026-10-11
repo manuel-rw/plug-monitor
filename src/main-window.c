@@ -779,7 +779,7 @@ show_permission_dialog (UsbTesterMonitorMainWindow *self,
     GtkAlertDialog *dialog = gtk_alert_dialog_new ("Permission required");
     gchar *detail = g_strdup_printf (
         "Access to %s is restricted to the administrator. "
-        "USB Tester Monitor can install a udev rule that grants you access to "
+        "Plug can install a udev rule that grants you access to "
         "this device permanently. Your password will be requested once.",
         page->device->identifier);
     gtk_alert_dialog_set_detail (dialog, detail);
@@ -894,8 +894,8 @@ update_selection_ui (UsbTesterMonitorMainWindow *self)
         connect_button_set_connected (self, connected);
         temp_label_set_value (self, page->temperature);
     } else {
-        gtk_label_set_text (self->title_label, "USB Tester Monitor");
-        gtk_window_set_title (GTK_WINDOW (self), "USB Tester Monitor");
+        gtk_label_set_text (self->title_label, "Plug");
+        gtk_window_set_title (GTK_WINDOW (self), "Plug");
 
         g_signal_handlers_block_by_func (self->connect_button,
                                          on_connect_button_toggled, self);
@@ -1100,7 +1100,8 @@ on_info_button_clicked (GtkButton *button,
     };
 
     AdwAboutDialog *about = ADW_ABOUT_DIALOG (adw_about_dialog_new ());
-    adw_about_dialog_set_application_name (about, "USB Tester Monitor");
+    adw_about_dialog_set_application_name (about, "Plug");
+    adw_about_dialog_set_application_icon (about, "io.github.manuelrw.Plug");
     adw_about_dialog_set_version (about, "0.1.0");
     adw_about_dialog_set_developer_name (about, "Manuel");
     adw_about_dialog_set_developers (about, developers);
@@ -1127,7 +1128,7 @@ setup_header_bar (UsbTesterMonitorMainWindow *self,
     gtk_header_bar_set_show_title_buttons (header_bar, TRUE);
 
     /* Device name as window title */
-    self->title_label = GTK_LABEL (gtk_label_new ("USB Tester Monitor"));
+    self->title_label = GTK_LABEL (gtk_label_new ("Plug"));
     gtk_widget_add_css_class (GTK_WIDGET (self->title_label), "heading");
     gtk_header_bar_set_title_widget (header_bar, GTK_WIDGET (self->title_label));
 
@@ -1150,7 +1151,7 @@ setup_header_bar (UsbTesterMonitorMainWindow *self,
      * pack_end puts each new widget to the left of the previous one,
      * so the info button ends up on the far right. */
     GtkButton *info_button = GTK_BUTTON (gtk_button_new_from_icon_name ("dialog-information-symbolic"));
-    gtk_widget_set_tooltip_text (GTK_WIDGET (info_button), "About USB Tester Monitor");
+    gtk_widget_set_tooltip_text (GTK_WIDGET (info_button), "About Plug");
     g_signal_connect (info_button, "clicked",
                       G_CALLBACK (on_info_button_clicked), self);
     gtk_header_bar_pack_end (header_bar, GTK_WIDGET (info_button));
@@ -1283,7 +1284,7 @@ usb_tester_monitor_main_window_init (UsbTesterMonitorMainWindow *self)
     self->countdown_remaining = 0;
 
     gtk_window_set_default_size (GTK_WINDOW (self), 900, 650);
-    gtk_window_set_title (GTK_WINDOW (self), "USB Tester Monitor");
+    gtk_window_set_title (GTK_WINDOW (self), "Plug");
 
     /* Create device manager */
     self->device_manager = usb_tester_monitor_device_manager_new ();

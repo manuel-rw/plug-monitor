@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <title>Plug</title>
+  <!-- Display module -->
+  <rect x="32" y="16" width="64" height="52" rx="12" fill="#3584e4"/>
+  <!-- Screen -->
+  <rect x="41" y="25" width="46" height="34" rx="7" fill="#1a5fb4"/>
+  <!-- Lightning bolt on screen -->
+  <path d="M 67 29 L 55 43 L 62 43 L 59 55 L 72 40 L 65 40 Z" fill="#f6d32d"/>
+  <!-- USB-A connector shell -->
+  <rect x="40" y="68" width="48" height="46" rx="6" fill="#c0bfbc"/>
+  <!-- Connector opening -->
+  <rect x="47" y="75" width="34" height="32" rx="4" fill="#9a9996"/>
+  <!-- Contacts -->
+  <rect x="53" y="82" width="8" height="18" rx="2" fill="#77767b"/>
+  <rect x="67" y="82" width="8" height="18" rx="2" fill="#77767b"/>
+</svg>
