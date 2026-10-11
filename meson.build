@@ -1,9 +1,8 @@
 project('usb-tester-monitor', 'c',
     version: '0.1.0',
-    license: 'GPL-3.0-or-later',
-    
-    meson.override_find_program('python3', ['python3', 'python'])
-)
+    license: 'GPL-3.0-or-later')
+
+meson.override_find_program('python3', ['python3', 'python'])
 
 # Dependencies
 gtk_dep = dependency('gtk4', version: '>= 4.12.0')
