@@ -24,7 +24,7 @@ resource_files = files(
 )
 
 # GResource compilation
-gresource = import('gnome.compile_resources')
+gresource = import('gnome')
 gresource_data = gresource.compile_resources(
     'usb-tester-monitor',
     'data/org.gnome.USBTesterMonitor.gresource.xml',
