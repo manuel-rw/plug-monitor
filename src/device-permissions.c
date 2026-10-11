@@ -14,6 +14,11 @@ static const gchar *rule_contents =
     "SUBSYSTEM==\"hidraw\", ATTRS{idVendor}==\"2e3c\", ATTRS{idProduct}==\"0049\", "
     "MODE=\"0660\", GROUP=\"dialout\", TAG+=\"uaccess\"\n"
     "SUBSYSTEM==\"hidraw\", ATTRS{idVendor}==\"2e3c\", ATTRS{idProduct}==\"5558\", "
+    "MODE=\"0660\", GROUP=\"dialout\", TAG+=\"uaccess\"\n"
+    "# ChargerLAB POWER-Z meters - installed by USB Tester Monitor\n"
+    "SUBSYSTEM==\"hidraw\", ATTRS{idVendor}==\"5fc9\", ATTRS{idProduct}==\"0061\", "
+    "MODE=\"0660\", GROUP=\"dialout\", TAG+=\"uaccess\"\n"
+    "SUBSYSTEM==\"hidraw\", ATTRS{idVendor}==\"5fc9\", ATTRS{idProduct}==\"0063\", "
     "MODE=\"0660\", GROUP=\"dialout\", TAG+=\"uaccess\"\n";
 
 static const gchar *install_command =

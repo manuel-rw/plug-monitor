@@ -453,7 +453,7 @@ show_record_dialog (UsbTesterMonitorMainWindow *self)
     DevicePage *page = active_page (self);
     gboolean has_fnirsi_channels =
         page != NULL &&
-        USB_TESTER_MONITOR_DEVICE_TYPE_IS_FNIRSI (page->device->type);
+        (USB_TESTER_MONITOR_DEVICE_TYPE_IS_FNIRSI (page->device->type) ||         USB_TESTER_MONITOR_DEVICE_TYPE_IS_POWERZ (page->device->type));
 
     struct {
         const gchar *id;
@@ -826,7 +826,7 @@ on_connect_button_toggled (GtkToggleButton *button,
             connect_button_set_connected (self, TRUE);
         } else if (error != NULL &&
                    g_error_matches (error, G_IO_ERROR, G_IO_ERROR_PERMISSION_DENIED) &&
-                   USB_TESTER_MONITOR_DEVICE_TYPE_IS_FNIRSI (page->device->type)) {
+                   (USB_TESTER_MONITOR_DEVICE_TYPE_IS_FNIRSI (page->device->type) ||                    USB_TESTER_MONITOR_DEVICE_TYPE_IS_POWERZ (page->device->type))) {
             g_error_free (error);
 
             /* Release the toggle; the retry after granting re-activates it */

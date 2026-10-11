@@ -20,6 +20,7 @@ A GNOME desktop application for monitoring USB tester devices like the Qianli iB
 - **Qianli iBridge A3** - Fully supported with reverse-engineered protocol
 - **Fnirsi FNB-48** - Fully supported with reverse-engineered protocol
 - **Fnirsi C1**, **Fnirsi FNB-48S**, **Fnirsi FNB-58** - Same protocol family as the FNB-48; supported following the reference implementation (not tested against hardware here)
+- **POWER-Z KM002C / KM003C** - Supported following the reverse-engineered protocol documentation and the vendor HID demo (ADC polling: voltage, current, temperature, D+/D-)
 
 ## Installation
 
@@ -89,6 +90,7 @@ The application automatically detects connected USB tester devices. Currently su
 
 - **Qianli iBridge A3**: Uses serial communication at 115200 baud
 - **Fnirsi FNB-48 / C1 / FNB-48S / FNB-58**: USB HID devices, accessed through their PC micro-USB port. All use the same report format; FNB-48 and C1 are polled with `AA 83`, FNB-48S and FNB-58 with `AA 82`
+- **POWER-Z KM002C / KM003C**: USB HID devices. Each `GET_DATA/ATT_ADC` request returns one ADC frame (bus voltage in uV, signed current in uA, temperature in 1/128 C, D+/D- in 0.1 mV)
 
 ### Manual Device Path
 
@@ -98,10 +100,11 @@ If your device is not auto-detected, you can specify the device path manually:
 
 ### Fnirsi FNB-48 Permissions
 
-The Fnirsi meters are HID devices; on Linux their `/dev/hidraw*` nodes are only
-accessible to root by default. The application offers to install a udev rule
-(granting access for all supported Fnirsi USB IDs) the first time a connect
-fails with a permission error. To install it manually:
+The Fnirsi and POWER-Z meters are HID devices; on Linux their `/dev/hidraw*`
+nodes are only accessible to root by default. The application offers to
+install a udev rule (granting access for all supported Fnirsi and POWER-Z
+USB IDs) the first time a connect fails with a permission error. To install
+it manually:
 
 ```shell
 sudo tee /etc/udev/rules.d/90-fnb48.rules <<'EOF'
@@ -109,6 +112,8 @@ SUBSYSTEM=="hidraw", ATTRS{idVendor}=="0483", ATTRS{idProduct}=="003a", MODE="06
 SUBSYSTEM=="hidraw", ATTRS{idVendor}=="0483", ATTRS{idProduct}=="003b", MODE="0660", GROUP="dialout", TAG+="uaccess"
 SUBSYSTEM=="hidraw", ATTRS{idVendor}=="2e3c", ATTRS{idProduct}=="0049", MODE="0660", GROUP="dialout", TAG+="uaccess"
 SUBSYSTEM=="hidraw", ATTRS{idVendor}=="2e3c", ATTRS{idProduct}=="5558", MODE="0660", GROUP="dialout", TAG+="uaccess"
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="5fc9", ATTRS{idProduct}=="0061", MODE="0660", GROUP="dialout", TAG+="uaccess"
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="5fc9", ATTRS{idProduct}=="0063", MODE="0660", GROUP="dialout", TAG+="uaccess"
 EOF
 sudo udevadm control --reload && sudo udevadm trigger
 ```
@@ -189,7 +194,8 @@ plug-monitor/
 │   ├── device-manager.c/h  # Device detection and management
 │   ├── device-protocol.c/h # Protocol abstraction
 │   ├── qianli-a3.c/h       # Qianli A3 implementation
-│   ├── fnirsi-fnb48.c/h    # Fnirsi FNB-48 implementation
+│   ├── fnirsi-fnb48.c/h    # Fnirsi FNB-48 family implementation
+│   ├── powerz-km003c.c/h   # POWER-Z KM002C/KM003C implementation
 │   ├── data-display.c/h    # Value display widgets
 │   ├── chart-view.c/h      # Chart visualization
 │   └── data-logger.c/h     # Data logging

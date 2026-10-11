@@ -1,5 +1,6 @@
 #include "device-manager.h"
 #include "device-protocol.h"
+#include "powerz-km003c.h"
 #include <glib.h>
 #include <gio/gio.h>
 #include <limits.h>
@@ -23,6 +24,17 @@ static const struct {
     { "0483", "003b", "Fnirsi C1",      USB_TESTER_MONITOR_DEVICE_TYPE_FNIRSI_C1      },
     { "2e3c", "0049", "Fnirsi FNB-48S", USB_TESTER_MONITOR_DEVICE_TYPE_FNIRSI_FNB48S },
     { "2e3c", "5558", "Fnirsi FNB-58",  USB_TESTER_MONITOR_DEVICE_TYPE_FNIRSI_FNB58  },
+};
+
+/* USB IDs of the ChargerLAB POWER-Z meters (HID protocol family) */
+static const struct {
+    const gchar *vendor;
+    const gchar *product;
+    const gchar *name;
+    UsbTesterMonitorDeviceType type;
+} POWERZ_USB_IDS[] = {
+    { POWERZ_VENDOR_ID, POWERZ_KM002C_PRODUCT_ID, "POWER-Z KM002C", USB_TESTER_MONITOR_DEVICE_TYPE_POWERZ_KM002C },
+    { POWERZ_VENDOR_ID, POWERZ_KM003C_PRODUCT_ID, "POWER-Z KM003C", USB_TESTER_MONITOR_DEVICE_TYPE_POWERZ_KM003C },
 };
 
 struct _UsbTesterMonitorDeviceManager {
@@ -271,6 +283,19 @@ usb_tester_monitor_device_manager_scan_devices (UsbTesterMonitorDeviceManager *s
             }
         }
 
+        for (gsize i = 0; i < G_N_ELEMENTS (POWERZ_USB_IDS); i++) {
+            if (g_strcmp0 (vendor, POWERZ_USB_IDS[i].vendor) == 0 &&
+                g_strcmp0 (product, POWERZ_USB_IDS[i].product) == 0) {
+                gchar *identifier = g_strdup_printf ("/dev/%s", name);
+                g_list_store_append (self->devices,
+                                     usb_tester_monitor_device_new (POWERZ_USB_IDS[i].name,
+                                                                    identifier,
+                                                                    POWERZ_USB_IDS[i].type));
+                g_free (identifier);
+                break;
+            }
+        }
+
         g_free (vendor);
         g_free (product);
     }
@@ -345,6 +370,10 @@ usb_tester_monitor_device_manager_connect_device (UsbTesterMonitorDeviceManager 
             protocol_type = "fnirsi-fnb48";
             break;
         }
+    } else if (USB_TESTER_MONITOR_DEVICE_TYPE_IS_POWERZ (device->type)) {
+        protocol_type = device->type == USB_TESTER_MONITOR_DEVICE_TYPE_POWERZ_KM002C
+            ? "powerz-km002c"
+            : "powerz-km003c";
     }
 
     UsbTesterMonitorDeviceProtocol *protocol =

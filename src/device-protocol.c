@@ -1,6 +1,7 @@
 #include "device-protocol.h"
 #include "qianli-a3.h"
 #include "fnirsi-fnb48.h"
+#include "powerz-km003c.h"
 #include <glib.h>
 #include <gio/gio.h>
 #include <errno.h>
@@ -38,19 +39,30 @@ struct _UsbTesterMonitorDeviceProtocol {
      * streaming keepalive. FNB-48 and C1 are polled with AA 83, FNB-48S
      * and FNB-58 with AA 82 (baryluk/fnirsi-usb-power-data-logger). */
     guint8 fnirsi_poll_cmd;
+
+    /* POWER-Z: source id of the pending rate-limited ADC poll */
+    guint powerz_poll_source;
 };
 
 G_DEFINE_FINAL_TYPE (UsbTesterMonitorDeviceProtocol, usb_tester_monitor_device_protocol, G_TYPE_OBJECT)
 
 static void usb_tester_monitor_device_protocol_close_channel (UsbTesterMonitorDeviceProtocol *self);
+static void usb_tester_monitor_device_protocol_powerz_cancel_poll (UsbTesterMonitorDeviceProtocol *self);
 
-/* The device implementation is a Qianli A3 or a Fnirsi FNB-48; the default
- * (and the fallback for unknown types) is the Qianli A3 */
+/* The device implementation is a Qianli A3, a Fnirsi meter or a POWER-Z;
+ * the default (and the fallback for unknown types) is the Qianli A3 */
 static gboolean
 usb_tester_monitor_device_protocol_impl_is_fnirsi (UsbTesterMonitorDeviceProtocol *self)
 {
     return self->device_impl != NULL &&
            USB_TESTER_MONITOR_IS_FNIRSI_FNB48 (self->device_impl);
+}
+
+static gboolean
+usb_tester_monitor_device_protocol_impl_is_powerz (UsbTesterMonitorDeviceProtocol *self)
+{
+    return self->device_impl != NULL &&
+           USB_TESTER_MONITOR_IS_POWERZ_KM003C (self->device_impl);
 }
 
 static void
@@ -91,6 +103,7 @@ usb_tester_monitor_device_protocol_init (UsbTesterMonitorDeviceProtocol *self)
     self->baud_rate = 115200;
     self->source_id = 0;
     self->fnirsi_poll_cmd = FNIRSI_FNB48_CMD_POLL;
+    self->powerz_poll_source = 0;
 }
 
 UsbTesterMonitorDeviceProtocol *
@@ -125,6 +138,10 @@ usb_tester_monitor_device_protocol_new_for_type (const gchar *device_path,
         self->device_impl = g_object_new (USB_TESTER_MONITOR_TYPE_FNIRSI_FNB48,
                                           NULL);
         self->fnirsi_poll_cmd = FNIRSI_FNB48_CMD_INIT_2; /* AA 82 */
+    } else if (g_strcmp0 (device_type, "powerz-km002c") == 0 ||
+               g_strcmp0 (device_type, "powerz-km003c") == 0) {
+        self->device_impl = g_object_new (USB_TESTER_MONITOR_TYPE_POWERZ_KM003C,
+                                          NULL);
     } else if (g_strcmp0 (device_type, "qianli-a3") == 0) {
         self->device_impl = g_object_new (USB_TESTER_MONITOR_TYPE_QIANLI_A3,
                                           NULL);
@@ -167,6 +184,8 @@ usb_tester_monitor_device_protocol_drain_fnirsi (UsbTesterMonitorDeviceProtocol 
 static void
 usb_tester_monitor_device_protocol_close_channel (UsbTesterMonitorDeviceProtocol *self)
 {
+    usb_tester_monitor_device_protocol_powerz_cancel_poll (self);
+
     if (self->source_id > 0) {
         g_source_remove (self->source_id);
         self->source_id = 0;
@@ -316,6 +335,48 @@ usb_tester_monitor_device_protocol_send_fnirsi_command (UsbTesterMonitorDevicePr
     return ok;
 }
 
+/* The POWER-Z reports ADC data only on request: every GET_DATA/ATT_ADC
+ * request yields exactly one reply. Each reply schedules the next request,
+ * rate limited to POWERZ_POLL_INTERVAL_MS, which sustains a steady poll
+ * loop while the stream is active. */
+static gboolean
+usb_tester_monitor_device_protocol_powerz_poll_once (gpointer user_data)
+{
+    UsbTesterMonitorDeviceProtocol *self = USB_TESTER_MONITOR_DEVICE_PROTOCOL (user_data);
+
+    self->powerz_poll_source = 0;
+
+    if (self->state != USB_TESTER_MONITOR_PROTOCOL_STATE_STREAMING || self->channel == NULL) {
+        return G_SOURCE_REMOVE;
+    }
+
+    guint8 *request = usb_tester_monitor_powerz_km003c_build_adc_request ();
+    usb_tester_monitor_device_protocol_write_hid_report (self, request, POWERZ_REPORT_SIZE);
+    g_free (request);
+
+    return G_SOURCE_REMOVE;
+}
+
+static void
+usb_tester_monitor_device_protocol_powerz_schedule_next_poll (UsbTesterMonitorDeviceProtocol *self)
+{
+    if (self->powerz_poll_source == 0) {
+        self->powerz_poll_source =
+            g_timeout_add (POWERZ_POLL_INTERVAL_MS,
+                           usb_tester_monitor_device_protocol_powerz_poll_once,
+                           self);
+    }
+}
+
+static void
+usb_tester_monitor_device_protocol_powerz_cancel_poll (UsbTesterMonitorDeviceProtocol *self)
+{
+    if (self->powerz_poll_source > 0) {
+        g_source_remove (self->powerz_poll_source);
+        self->powerz_poll_source = 0;
+    }
+}
+
 static gboolean
 usb_tester_monitor_device_protocol_on_serial_data (GIOChannel *source,
                                                     GIOCondition condition,
@@ -348,7 +409,11 @@ usb_tester_monitor_device_protocol_on_serial_data (GIOChannel *source,
     }
 
     if (status == G_IO_STATUS_NORMAL && bytes_read > 0 && self->device_impl) {
-        if (usb_tester_monitor_device_protocol_impl_is_fnirsi (self)) {
+        if (usb_tester_monitor_device_protocol_impl_is_powerz (self)) {
+            usb_tester_monitor_powerz_km003c_feed (USB_TESTER_MONITOR_POWERZ_KM003C (self->device_impl),
+                                                   (const guint8 *) buffer, bytes_read);
+            usb_tester_monitor_device_protocol_powerz_schedule_next_poll (self);
+        } else if (usb_tester_monitor_device_protocol_impl_is_fnirsi (self)) {
             usb_tester_monitor_fnirsi_fnb48_feed (USB_TESTER_MONITOR_FNIRSI_FNB48 (self->device_impl),
                                                   (const guint8 *) buffer, bytes_read);
 
@@ -416,6 +481,12 @@ usb_tester_monitor_device_protocol_connect (UsbTesterMonitorDeviceProtocol *self
         usb_tester_monitor_fnirsi_fnb48_set_reading_callback (
             USB_TESTER_MONITOR_FNIRSI_FNB48 (self->device_impl),
             usb_tester_monitor_device_protocol_on_reading_fnirsi, self);
+    } else if (usb_tester_monitor_device_protocol_impl_is_powerz (self)) {
+        /* Same callback shape as the Fnirsi trampoline: voltage, current,
+         * temperature, D+, D- */
+        usb_tester_monitor_powerz_km003c_set_reading_callback (
+            USB_TESTER_MONITOR_POWERZ_KM003C (self->device_impl),
+            usb_tester_monitor_device_protocol_on_reading_fnirsi, self);
     } else {
         usb_tester_monitor_qianli_a3_set_reading_callback (
             USB_TESTER_MONITOR_QIANLI_A3 (self->device_impl),
@@ -446,7 +517,17 @@ usb_tester_monitor_device_protocol_start_streaming (UsbTesterMonitorDeviceProtoc
         return;
     }
 
-    if (usb_tester_monitor_device_protocol_impl_is_fnirsi (self)) {
+    if (usb_tester_monitor_device_protocol_impl_is_powerz (self)) {
+        /* ADC data is single-shot: request the first report; every reply
+         * schedules the next request */
+        guint8 *request = usb_tester_monitor_powerz_km003c_build_adc_request ();
+        gboolean ok = usb_tester_monitor_device_protocol_write_hid_report (self, request,
+                                                                           POWERZ_REPORT_SIZE);
+        g_free (request);
+        if (!ok) {
+            return;
+        }
+    } else if (usb_tester_monitor_device_protocol_impl_is_fnirsi (self)) {
         /* Fnirsi handshake, followed by the poll that starts the data stream */
         if (!usb_tester_monitor_device_protocol_send_fnirsi_command (self,
                                                                      FNIRSI_FNB48_CMD_INIT_1) ||
@@ -486,7 +567,10 @@ usb_tester_monitor_device_protocol_stop_streaming (UsbTesterMonitorDeviceProtoco
         return;
     }
 
-    if (usb_tester_monitor_device_protocol_impl_is_fnirsi (self)) {
+    if (usb_tester_monitor_device_protocol_impl_is_powerz (self)) {
+        /* Stop the rate-limited poll loop; no other teardown needed */
+        usb_tester_monitor_device_protocol_powerz_cancel_poll (self);
+    } else if (usb_tester_monitor_device_protocol_impl_is_fnirsi (self)) {
         /* The FNB-48 stops streaming once the polls cease */
     } else if (self->channel) {
         /* Disable data stream: Model 04, Cmd 05, Payload 01 */
