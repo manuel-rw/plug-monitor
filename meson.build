@@ -53,13 +53,12 @@ executable('usb-tester-monitor',
         'src/data-logger.c',
         'src/data-logger.h',
     ],
-    dependencies: [gtk_dep, glib_dep, gio_dep, gobject_dep, libadwaita_dep, data_logger_dep],
+    dependencies: [gtk_dep, glib_dep, gio_dep, gobject_dep, libadwaita_dep],
     resources: gresource_data,
     install: true
 )
 
-# Data logger dependency (optional, for logging functionality)
-data_logger_dep = dependency('glib-2.0', version: '>= 2.78.0')
+
 
 # Install desktop and appdata files
 desktop_file = configure_file(
