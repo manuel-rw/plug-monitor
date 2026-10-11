@@ -42,25 +42,79 @@ struct _UsbTesterMonitorMainWindow {
 G_DEFINE_FINAL_TYPE (UsbTesterMonitorMainWindow, usb_tester_monitor_main_window, ADW_TYPE_APPLICATION_WINDOW)
 
 static void
+on_reading (gdouble voltage,
+            gdouble current,
+            gpointer user_data)
+{
+    UsbTesterMonitorMainWindow *self = USB_TESTER_MONITOR_MAIN_WINDOW (user_data);
+
+    self->current_voltage = voltage;
+    self->current_current = current;
+    self->current_power = voltage * current;
+
+    /* Track min/max */
+    if (self->min_voltage == 0.0 || voltage < self->min_voltage) self->min_voltage = voltage;
+    if (voltage > self->max_voltage) self->max_voltage = voltage;
+    if (self->min_current == 0.0 || current < self->min_current) self->min_current = current;
+    if (current > self->max_current) self->max_current = current;
+
+    usb_tester_monitor_data_display_set_voltage (self->data_display, voltage);
+    usb_tester_monitor_data_display_set_current (self->data_display, current);
+    usb_tester_monitor_data_display_set_power (self->data_display, self->current_power);
+    usb_tester_monitor_data_display_set_min_max_voltage (self->data_display,
+                                                          self->min_voltage,
+                                                          self->max_voltage);
+    usb_tester_monitor_data_display_set_min_max_current (self->data_display,
+                                                          self->min_current,
+                                                          self->max_current);
+
+    usb_tester_monitor_chart_view_add_voltage_reading (self->chart_view, voltage);
+    usb_tester_monitor_chart_view_add_current_reading (self->chart_view, current);
+}
+
+static void
 on_connect_button_toggled (GtkToggleButton *button,
                            gpointer user_data)
 {
     UsbTesterMonitorMainWindow *self = USB_TESTER_MONITOR_MAIN_WINDOW (user_data);
-    
+
     if (gtk_toggle_button_get_active (button)) {
-        /* Connect to first available device for now */
+        /* Rescan in case the device was plugged in after startup */
+        usb_tester_monitor_device_manager_scan_devices (self->device_manager);
+
         GListModel *devices = usb_tester_monitor_device_manager_get_devices (self->device_manager);
-        
+
         if (g_list_model_get_n_items (devices) > 0) {
             UsbTesterMonitorDevice *device = g_list_model_get_item (devices, 0);
-            usb_tester_monitor_device_manager_connect_device (self->device_manager,
-                                                             device->identifier);
-            
-            gtk_label_set_text (self->device_label, device->identifier);
+            gboolean connected = usb_tester_monitor_device_manager_connect_device (self->device_manager,
+                                                                                    device->identifier);
+
+            if (connected) {
+                gtk_label_set_text (self->device_label, device->identifier);
+                usb_tester_monitor_data_display_set_device_status (self->data_display,
+                                                                   "Connected");
+                self->is_connected = TRUE;
+            } else {
+                /* Not connected: release the toggle again */
+                gtk_label_set_text (self->device_label, "No device");
+                usb_tester_monitor_data_display_set_device_status (self->data_display,
+                                                                   "Connection failed");
+                g_signal_handlers_block_by_func (button, on_connect_button_toggled, self);
+                gtk_toggle_button_set_active (button, FALSE);
+                g_signal_handlers_unblock_by_func (button, on_connect_button_toggled, self);
+                self->is_connected = FALSE;
+            }
+
+            g_object_unref (device);
+        } else {
+            /* No devices found */
+            gtk_label_set_text (self->device_label, "No device");
             usb_tester_monitor_data_display_set_device_status (self->data_display,
-                                                                    "Connected");
-            
-            self->is_connected = TRUE;
+                                                               "No device found");
+            g_signal_handlers_block_by_func (button, on_connect_button_toggled, self);
+            gtk_toggle_button_set_active (button, FALSE);
+            g_signal_handlers_unblock_by_func (button, on_connect_button_toggled, self);
+            self->is_connected = FALSE;
         }
     } else {
         /* Disconnect */
@@ -70,6 +124,7 @@ on_connect_button_toggled (GtkToggleButton *button,
             UsbTesterMonitorDevice *device = g_list_model_get_item (devices, 0);
             usb_tester_monitor_device_manager_disconnect_device (self->device_manager,
                                                                  device->identifier);
+            g_object_unref (device);
         }
         
         self->is_connected = FALSE;
@@ -97,9 +152,9 @@ on_connect_button_toggled (GtkToggleButton *button,
 static void
 setup_header_bar (UsbTesterMonitorMainWindow *self)
 {
-    /* Create header bar */
+    /* Create header bar. AdwApplicationWindow manages its own titlebar,
+     * so the header bar is added via an AdwToolbarView instead. */
     self->header_bar = GTK_HEADER_BAR (gtk_header_bar_new ());
-    gtk_window_set_titlebar (GTK_WINDOW (self), GTK_WIDGET (self->header_bar));
     
     /* Title */
     GtkLabel *title_label = GTK_LABEL (gtk_label_new ("USB Tester Monitor"));
@@ -127,17 +182,22 @@ setup_main_content (UsbTesterMonitorMainWindow *self)
 {
     /* Main box */
     self->main_box = GTK_BOX (gtk_box_new (GTK_ORIENTATION_VERTICAL, 0));
-    gtk_window_set_child (GTK_WINDOW (self), GTK_WIDGET (self->main_box));
-    
+
     /* Create data display */
     self->data_display = usb_tester_monitor_data_display_new ();
     gtk_box_append (self->main_box, GTK_WIDGET (self->data_display));
-    
+
     /* Create chart view */
     self->chart_view = usb_tester_monitor_chart_view_new ();
     gtk_widget_set_hexpand (GTK_WIDGET (self->chart_view), TRUE);
     gtk_widget_set_vexpand (GTK_WIDGET (self->chart_view), TRUE);
     gtk_box_append (self->main_box, GTK_WIDGET (self->chart_view));
+
+    /* Combine header bar and content in a toolbar view */
+    AdwToolbarView *toolbar_view = ADW_TOOLBAR_VIEW (adw_toolbar_view_new ());
+    adw_toolbar_view_add_top_bar (toolbar_view, GTK_WIDGET (self->header_bar));
+    adw_toolbar_view_set_content (toolbar_view, GTK_WIDGET (self->main_box));
+    adw_application_window_set_content (ADW_APPLICATION_WINDOW (self), GTK_WIDGET (toolbar_view));
 }
 
 static void
@@ -182,6 +242,9 @@ usb_tester_monitor_main_window_init (UsbTesterMonitorMainWindow *self)
     /* Create device manager */
     self->device_manager = usb_tester_monitor_device_manager_new ();
     usb_tester_monitor_device_manager_scan_devices (self->device_manager);
+    usb_tester_monitor_device_manager_set_reading_callback (self->device_manager,
+                                                            on_reading,
+                                                            self);
     
     /* Set up UI */
     setup_header_bar (self);

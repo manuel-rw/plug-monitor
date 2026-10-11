@@ -10,10 +10,10 @@ G_DEFINE_FINAL_TYPE (UsbTesterMonitorApplication, usb_tester_monitor_application
 static void
 usb_tester_monitor_application_activate (GApplication *app)
 {
-    UsbTesterMonitorApplication *self = USB_TESTER_MONITOR_APPLICATION (app);
     UsbTesterMonitorMainWindow *window;
 
     window = usb_tester_monitor_main_window_new ();
+    gtk_window_set_application (GTK_WINDOW (window), GTK_APPLICATION (app));
     gtk_window_present (GTK_WINDOW (window));
 }
 

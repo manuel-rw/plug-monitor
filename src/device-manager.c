@@ -2,42 +2,95 @@
 #include "device-protocol.h"
 #include <glib.h>
 #include <gio/gio.h>
+#include <limits.h>
+#include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+
+/* USB IDs of the Qianli iBridge A3 (XHSC CDC serial) */
+#define QIANLI_A3_USB_VENDOR_ID "2e88"
+#define QIANLI_A3_USB_PRODUCT_ID "4603"
 
 struct _UsbTesterMonitorDeviceManager {
     GObject parent_instance;
-    
+
     /* List of detected devices */
     GListStore *devices;
-    
+
     /* Currently connected device */
-    gpointer active_protocol;
-    
+    UsbTesterMonitorDeviceProtocol *active_protocol;
+    gchar *active_identifier;
+
     /* Device scanning */
     GList *serial_ports;
+
+    /* Reading callback forwarded to the active protocol */
+    UsbTesterMonitorManagerReadingCallback reading_callback;
+    gpointer reading_user_data;
 };
 
 G_DEFINE_FINAL_TYPE (UsbTesterMonitorDeviceManager, usb_tester_monitor_device_manager, G_TYPE_OBJECT)
+G_DEFINE_TYPE (UsbTesterMonitorDevice, usb_tester_monitor_device, G_TYPE_OBJECT)
 
 static void
-usb_tester_monitor_device_free (UsbTesterMonitorDevice *device)
+usb_tester_monitor_device_finalize (GObject *object)
 {
+    UsbTesterMonitorDevice *device = USB_TESTER_MONITOR_DEVICE (object);
+
     g_free (device->name);
     g_free (device->identifier);
-    g_free (device);
+
+    G_OBJECT_CLASS (usb_tester_monitor_device_parent_class)->finalize (object);
+}
+
+static void
+usb_tester_monitor_device_class_init (UsbTesterMonitorDeviceClass *klass)
+{
+    GObjectClass *object_class = G_OBJECT_CLASS (klass);
+
+    object_class->finalize = usb_tester_monitor_device_finalize;
+}
+
+static void
+usb_tester_monitor_device_init (UsbTesterMonitorDevice *self)
+{
+}
+
+UsbTesterMonitorDevice *
+usb_tester_monitor_device_new (const gchar *name,
+                               const gchar *identifier,
+                               UsbTesterMonitorDeviceType type)
+{
+    UsbTesterMonitorDevice *device = g_object_new (USB_TESTER_MONITOR_TYPE_DEVICE, NULL);
+
+    device->name = g_strdup (name);
+    device->identifier = g_strdup (identifier);
+    device->type = type;
+    device->state = USB_TESTER_MONITOR_DEVICE_STATE_DISCONNECTED;
+
+    return device;
 }
 
 static void
 usb_tester_monitor_device_manager_finalize (GObject *object)
 {
     UsbTesterMonitorDeviceManager *self = USB_TESTER_MONITOR_DEVICE_MANAGER (object);
-    
+
+    if (self->active_protocol) {
+        usb_tester_monitor_device_protocol_stop_streaming (self->active_protocol);
+        usb_tester_monitor_device_protocol_disconnect (self->active_protocol);
+        g_object_unref (self->active_protocol);
+        self->active_protocol = NULL;
+    }
+
+    g_free (self->active_identifier);
+
     if (self->devices) {
         g_object_unref (self->devices);
     }
-    
+
     g_list_free_full (self->serial_ports, g_free);
-    
+
     G_OBJECT_CLASS (usb_tester_monitor_device_manager_parent_class)->finalize (object);
 }
 
@@ -52,7 +105,7 @@ usb_tester_monitor_device_manager_class_init (UsbTesterMonitorDeviceManagerClass
 static void
 usb_tester_monitor_device_manager_init (UsbTesterMonitorDeviceManager *self)
 {
-    self->devices = g_list_store_new (G_TYPE_POINTER);
+    self->devices = g_list_store_new (USB_TESTER_MONITOR_TYPE_DEVICE);
     self->serial_ports = NULL;
 }
 
@@ -70,56 +123,170 @@ usb_tester_monitor_device_manager_get_devices (UsbTesterMonitorDeviceManager *se
     return G_LIST_MODEL (self->devices);
 }
 
+/* Walk up the sysfs device chain looking for idVendor/idProduct files.
+ * Fills vendor/product with freshly allocated strings when found. */
+static gboolean
+usb_tester_monitor_device_manager_find_usb_ids (const gchar *tty_name,
+                                                 gchar **vendor,
+                                                 gchar **product)
+{
+    gchar *device_link = g_build_filename ("/sys/class/tty", tty_name, "device", NULL);
+    char resolved[PATH_MAX];
+
+    if (!realpath (device_link, resolved)) {
+        g_free (device_link);
+        return FALSE;
+    }
+    g_free (device_link);
+
+    gchar *dir = g_strdup (resolved);
+    for (gint depth = 0; depth < 6 && dir != NULL; depth++) {
+        gchar *vendor_file = g_build_filename (dir, "idVendor", NULL);
+        gboolean found = g_file_test (vendor_file, G_FILE_TEST_EXISTS);
+        g_free (vendor_file);
+
+        if (found) {
+            *vendor = NULL;
+            *product = NULL;
+
+            if (!g_file_get_contents (g_build_filename (dir, "idVendor", NULL), vendor, NULL, NULL) ||
+                !g_file_get_contents (g_build_filename (dir, "idProduct", NULL), product, NULL, NULL)) {
+                g_free (*vendor);
+                g_free (*product);
+                g_free (dir);
+                return FALSE;
+            }
+
+            g_strstrip (*vendor);
+            g_strstrip (*product);
+            g_free (dir);
+            return TRUE;
+        }
+
+        gchar *parent = g_path_get_dirname (dir);
+        g_free (dir);
+        dir = NULL;
+        if (g_strcmp0 (parent, "/") == 0) {
+            g_free (parent);
+            break;
+        }
+        dir = parent;
+    }
+
+    g_free (dir);
+    return FALSE;
+}
+
 void
 usb_tester_monitor_device_manager_scan_devices (UsbTesterMonitorDeviceManager *self)
 {
     g_return_if_fail (USB_TESTER_MONITOR_IS_DEVICE_MANAGER (self));
-    
+
     /* Clear existing devices */
     g_list_store_remove_all (self->devices);
-    
-    /* For now, add some placeholder devices for testing */
-    UsbTesterMonitorDevice *device;
-    
-    /* Test device 1 */
-    device = g_new0 (UsbTesterMonitorDevice, 1);
-    device->name = g_strdup ("Qianli iBridge A3");
-    device->identifier = g_strdup ("/dev/ttyUSB0");
-    device->type = USB_TESTER_MONITOR_DEVICE_TYPE_QIANLI_A3;
-    device->state = USB_TESTER_MONITOR_DEVICE_STATE_DISCONNECTED;
-    g_list_store_append (self->devices, device);
-    
-    /* Test device 2 */
-    device = g_new0 (UsbTesterMonitorDevice, 1);
-    device->name = g_strdup ("Qianli iBridge A3");
-    device->identifier = g_strdup ("/dev/ttyUSB1");
-    device->type = USB_TESTER_MONITOR_DEVICE_TYPE_QIANLI_A3;
-    device->state = USB_TESTER_MONITOR_DEVICE_STATE_DISCONNECTED;
-    g_list_store_append (self->devices, device);
-    
-    /* Test device 3 (Windows) */
-    device = g_new0 (UsbTesterMonitorDevice, 1);
-    device->name = g_strdup ("Qianli iBridge A3");
-    device->identifier = g_strdup ("COM3");
-    device->type = USB_TESTER_MONITOR_DEVICE_TYPE_QIANLI_A3;
-    device->state = USB_TESTER_MONITOR_DEVICE_STATE_DISCONNECTED;
-    g_list_store_append (self->devices, device);
+
+    GDir *dir = g_dir_open ("/sys/class/tty", 0, NULL);
+    if (dir == NULL) {
+        return;
+    }
+
+    const gchar *name;
+    while ((name = g_dir_read_name (dir)) != NULL) {
+        gchar *vendor = NULL;
+        gchar *product = NULL;
+
+        if (!usb_tester_monitor_device_manager_find_usb_ids (name, &vendor, &product)) {
+            continue;
+        }
+
+        if (g_strcmp0 (vendor, QIANLI_A3_USB_VENDOR_ID) == 0 &&
+            g_strcmp0 (product, QIANLI_A3_USB_PRODUCT_ID) == 0) {
+            gchar *identifier = g_strdup_printf ("/dev/%s", name);
+            g_list_store_append (self->devices,
+                                 usb_tester_monitor_device_new ("Qianli iBridge A3",
+                                                                identifier,
+                                                                USB_TESTER_MONITOR_DEVICE_TYPE_QIANLI_A3));
+            g_free (identifier);
+        }
+
+        g_free (vendor);
+        g_free (product);
+    }
+
+    g_dir_close (dir);
 }
 
-void
-usb_tester_monitor_device_manager_connect_device (UsbTesterMonitorDeviceManager *self,
-                                                   const gchar *identifier)
+static void
+usb_tester_monitor_device_manager_on_reading (UsbTesterMonitorDeviceProtocol *protocol,
+                                               UsbTesterMonitorReading *reading,
+                                               gpointer user_data)
 {
-    g_return_if_fail (USB_TESTER_MONITOR_IS_DEVICE_MANAGER (self));
-    g_return_if_fail (identifier != NULL);
-    
-    /* Update device state */
+    UsbTesterMonitorDeviceManager *self = USB_TESTER_MONITOR_DEVICE_MANAGER (user_data);
+    (void) protocol;
+
+    if (self->reading_callback) {
+        self->reading_callback (reading->voltage, reading->current,
+                                 self->reading_user_data);
+    }
+}
+
+static UsbTesterMonitorDevice *
+usb_tester_monitor_device_manager_find_device (UsbTesterMonitorDeviceManager *self,
+                                                const gchar *identifier)
+{
     for (guint i = 0; i < g_list_model_get_n_items (G_LIST_MODEL (self->devices)); i++) {
         UsbTesterMonitorDevice *device = g_list_model_get_item (G_LIST_MODEL (self->devices), i);
         if (g_strcmp0 (device->identifier, identifier) == 0) {
-            device->state = USB_TESTER_MONITOR_DEVICE_STATE_CONNECTED;
+            return device;
         }
+        g_object_unref (device);
     }
+    return NULL;
+}
+
+gboolean
+usb_tester_monitor_device_manager_connect_device (UsbTesterMonitorDeviceManager *self,
+                                                   const gchar *identifier)
+{
+    g_return_val_if_fail (USB_TESTER_MONITOR_IS_DEVICE_MANAGER (self), FALSE);
+    g_return_val_if_fail (identifier != NULL, FALSE);
+
+    if (self->active_protocol != NULL) {
+        usb_tester_monitor_device_manager_disconnect_device (self, self->active_identifier);
+    }
+
+    UsbTesterMonitorDevice *device = usb_tester_monitor_device_manager_find_device (self, identifier);
+    if (device == NULL) {
+        return FALSE;
+    }
+
+    self->active_protocol = usb_tester_monitor_device_protocol_new_for_type (identifier,
+                                                                             "qianli-a3");
+    usb_tester_monitor_device_protocol_set_data_callback (self->active_protocol,
+                                                          usb_tester_monitor_device_manager_on_reading,
+                                                          self, NULL);
+
+    GError *error = NULL;
+    if (!usb_tester_monitor_device_protocol_connect (self->active_protocol, &error)) {
+        g_warning ("Failed to connect to %s: %s", identifier,
+                   error ? error->message : "unknown error");
+        g_clear_error (&error);
+        g_object_unref (self->active_protocol);
+        self->active_protocol = NULL;
+        device->state = USB_TESTER_MONITOR_DEVICE_STATE_ERROR;
+        g_object_unref (device);
+        return FALSE;
+    }
+
+    usb_tester_monitor_device_protocol_start_streaming (self->active_protocol);
+
+    device->state = USB_TESTER_MONITOR_DEVICE_STATE_CONNECTED;
+    g_object_unref (device);
+
+    g_free (self->active_identifier);
+    self->active_identifier = g_strdup (identifier);
+
+    return TRUE;
 }
 
 void
@@ -127,12 +294,38 @@ usb_tester_monitor_device_manager_disconnect_device (UsbTesterMonitorDeviceManag
                                                       const gchar *identifier)
 {
     g_return_if_fail (USB_TESTER_MONITOR_IS_DEVICE_MANAGER (self));
-    
+
+    if (self->active_protocol == NULL) {
+        return;
+    }
+
+    usb_tester_monitor_device_protocol_stop_streaming (self->active_protocol);
+    usb_tester_monitor_device_protocol_disconnect (self->active_protocol);
+    g_object_unref (self->active_protocol);
+    self->active_protocol = NULL;
+
+    g_free (self->active_identifier);
+    self->active_identifier = NULL;
+
     /* Update device state */
-    for (guint i = 0; i < g_list_model_get_n_items (G_LIST_MODEL (self->devices)); i++) {
-        UsbTesterMonitorDevice *device = g_list_model_get_item (G_LIST_MODEL (self->devices), i);
-        if (g_strcmp0 (device->identifier, identifier) == 0) {
-            device->state = USB_TESTER_MONITOR_DEVICE_STATE_DISCONNECTED;
+    if (identifier != NULL) {
+        for (guint i = 0; i < g_list_model_get_n_items (G_LIST_MODEL (self->devices)); i++) {
+            UsbTesterMonitorDevice *device = g_list_model_get_item (G_LIST_MODEL (self->devices), i);
+            if (g_strcmp0 (device->identifier, identifier) == 0) {
+                device->state = USB_TESTER_MONITOR_DEVICE_STATE_DISCONNECTED;
+            }
+            g_object_unref (device);
         }
     }
+}
+
+void
+usb_tester_monitor_device_manager_set_reading_callback (UsbTesterMonitorDeviceManager *self,
+                                                        UsbTesterMonitorManagerReadingCallback callback,
+                                                        gpointer user_data)
+{
+    g_return_if_fail (USB_TESTER_MONITOR_IS_DEVICE_MANAGER (self));
+
+    self->reading_callback = callback;
+    self->reading_user_data = user_data;
 }
