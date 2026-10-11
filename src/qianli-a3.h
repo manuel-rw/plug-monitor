@@ -18,8 +18,6 @@ G_DECLARE_FINAL_TYPE (UsbTesterMonitorQianliA3, usb_tester_monitor_qianli_a3,
 #define QIANLI_A3_MODEL_ID 0x04
 #define QIANLI_A3_CMD_ENABLE_STREAM 0x05
 #define QIANLI_A3_CMD_DISABLE_STREAM 0x05
-#define QIANLI_A3_CMD_PING 0x01
-#define QIANLI_A3_CMD_VERSION 0x04
 
 /* Payload constants */
 #define QIANLI_A3_PAYLOAD_ENABLE 0x00

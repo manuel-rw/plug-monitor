@@ -62,48 +62,6 @@ usb_tester_monitor_device_manager_init (UsbTesterMonitorDeviceManager *self)
     self->serial_ports = NULL;
 }
 
-/* Detect available serial ports */
-static GList *
-detect_serial_ports (void)
-{
-    GList *ports = NULL;
-    
-    /* Common serial port patterns */
-    const gchar *patterns[] = {
-        "/dev/ttyUSB*",
-        "/dev/ttyACM*",
-        "/dev/ttyS*",
-        "COM*",
-        NULL
-    };
-    
-    /* Try to find serial ports */
-    /* This is a simplified approach - in production, use libserialport or similar */
-    
-    /* For now, return an empty list */
-    /* Device detection will be enhanced in future versions */
-    
-    return ports;
-}
-
-/* Check if a port might be a Qianli A3 device */
-static gboolean
-is_qianli_a3_device (const gchar *port_path)
-{
-    /* Try to open and identify the device */
-    /* This is a placeholder - actual detection would involve */
-    /* sending identification commands and checking responses */
-    
-    /* For now, assume common USB serial devices might be Qianli A3 */
-    if (g_str_has_prefix (port_path, "/dev/ttyUSB") ||
-        g_str_has_prefix (port_path, "/dev/ttyACM") ||
-        g_str_has_prefix (port_path, "COM")) {
-        return TRUE;
-    }
-    
-    return FALSE;
-}
-
 UsbTesterMonitorDeviceManager *
 usb_tester_monitor_device_manager_new (void)
 {
@@ -126,19 +84,7 @@ usb_tester_monitor_device_manager_scan_devices (UsbTesterMonitorDeviceManager *s
     /* Clear existing devices */
     g_list_store_remove_all (self->devices);
     
-    /* Detect serial ports */
-    self->serial_ports = detect_serial_ports ();
-    
-    /* For each port, check if it might be a supported device */
-    /* This is a simplified approach - real implementation would try to */
-    /* communicate with each device to identify it */
-    
-    /* Add some common test patterns */
-    /* In a real implementation, these would be detected devices */
-    
-    /* Add Qianli A3 devices */
     /* For now, add some placeholder devices for testing */
-    
     UsbTesterMonitorDevice *device;
     
     /* Test device 1 */
@@ -182,9 +128,7 @@ usb_tester_monitor_device_manager_connect_device (UsbTesterMonitorDeviceManager 
     
     /* Create appropriate protocol for the device */
     /* For now, assume all devices are Qianli A3 */
-    self->active_protocol = g_object_new (USB_TESTER_MONITOR_TYPE_QIANLI_A3,
-                                          "device-path", identifier,
-                                          NULL);
+    self->active_protocol = usb_tester_monitor_device_protocol_new (identifier, 115200);
     
     /* Try to connect */
     GError *error = NULL;
@@ -201,8 +145,6 @@ usb_tester_monitor_device_manager_connect_device (UsbTesterMonitorDeviceManager 
         UsbTesterMonitorDevice *device = g_list_model_get_item (G_LIST_MODEL (self->devices), i);
         if (g_strcmp0 (device->identifier, identifier) == 0) {
             device->state = USB_TESTER_MONITOR_DEVICE_STATE_CONNECTED;
-            g_object_notify (G_OBJECT (self), "devices");
-            break;
         }
     }
 }
@@ -233,8 +175,6 @@ usb_tester_monitor_device_manager_disconnect_device (UsbTesterMonitorDeviceManag
         UsbTesterMonitorDevice *device = g_list_model_get_item (G_LIST_MODEL (self->devices), i);
         if (g_strcmp0 (device->identifier, identifier) == 0) {
             device->state = USB_TESTER_MONITOR_DEVICE_STATE_DISCONNECTED;
-            g_object_notify (G_OBJECT (self), "devices");
-            break;
         }
     }
 }

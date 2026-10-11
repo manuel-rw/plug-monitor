@@ -21,7 +21,7 @@ struct _UsbTesterMonitorDataLogger {
     
     /* File output */
     GFile *file;
-    GOutputStream *output_stream;
+    GFileOutputStream *output_stream;
     
     /* Callback */
     UsbTesterMonitorLogCallback callback;
@@ -46,7 +46,7 @@ usb_tester_monitor_data_logger_finalize (GObject *object)
     
     /* Close file */
     if (self->output_stream) {
-        g_output_stream_close (self->output_stream, NULL, NULL);
+        g_output_stream_close (G_OUTPUT_STREAM (self->output_stream), NULL, NULL);
         g_object_unref (self->output_stream);
     }
     if (self->file) {
@@ -87,7 +87,7 @@ write_log_entry (UsbTesterMonitorDataLogger *self)
         
         /* Write to file */
         gsize bytes_written;
-        g_output_stream_write_all (self->output_stream,
+        g_output_stream_write_all (G_OUTPUT_STREAM (self->output_stream),
                                    line,
                                    strlen (line),
                                    &bytes_written,
@@ -158,7 +158,7 @@ ensure_log_file (UsbTesterMonitorDataLogger *self)
         g_date_time_unref (now);
     } else {
         /* Use default location */
-        gchar *home_dir = g_get_home_dir ();
+        const gchar *home_dir = g_get_home_dir ();
         gchar *filepath = g_build_filename (home_dir, "usb_tester_log.csv", NULL);
         self->file = g_file_new_for_path (filepath);
         g_free (filepath);
@@ -172,16 +172,19 @@ ensure_log_file (UsbTesterMonitorDataLogger *self)
     }
     
     /* Open file for appending */
-    self->output_stream = G_OUTPUT_STREAM (g_file_append_to (self->file, G_FILE_CREATE_NONE, NULL));
+    GError *error = NULL;
+    self->output_stream = g_file_append_to (self->file, G_FILE_CREATE_NONE, NULL, &error);
     
     if (!self->output_stream) {
+        g_warning ("Failed to open log file: %s", error ? error->message : "unknown error");
+        if (error) g_error_free (error);
         return FALSE;
     }
     
     /* Write CSV header */
     gchar *header = "timestamp,voltage,current,power\n";
     gsize bytes_written;
-    g_output_stream_write_all (self->output_stream,
+    g_output_stream_write_all (G_OUTPUT_STREAM (self->output_stream),
                                header,
                                strlen (header),
                                &bytes_written,
@@ -235,7 +238,7 @@ usb_tester_monitor_data_logger_stop (UsbTesterMonitorDataLogger *self)
     
     /* Close file */
     if (self->output_stream) {
-        g_output_stream_close (self->output_stream, NULL, NULL);
+        g_output_stream_close (G_OUTPUT_STREAM (self->output_stream), NULL, NULL);
         g_object_unref (self->output_stream);
         self->output_stream = NULL;
     }
@@ -301,9 +304,11 @@ usb_tester_monitor_data_logger_export_to_csv (UsbTesterMonitorDataLogger *self,
     g_return_val_if_fail (USB_TESTER_MONITOR_IS_DATA_LOGGER (self), FALSE);
     
     GFile *export_file = g_file_new_for_path (filename);
-    GOutputStream *stream = G_OUTPUT_STREAM (g_file_create (export_file, G_FILE_CREATE_NONE, error));
+    GError *local_error = NULL;
+    GFileOutputStream *stream = g_file_create (export_file, G_FILE_CREATE_NONE, NULL, &local_error);
     
     if (!stream) {
+        g_propagate_error (error, local_error);
         g_object_unref (export_file);
         return FALSE;
     }
@@ -311,10 +316,11 @@ usb_tester_monitor_data_logger_export_to_csv (UsbTesterMonitorDataLogger *self,
     /* Write CSV header */
     gchar *header = "timestamp,voltage,current,power\n";
     gsize bytes_written;
-    g_output_stream_write_all (stream, header, strlen (header), &bytes_written, NULL, error);
+    g_output_stream_write_all (G_OUTPUT_STREAM (stream), header, strlen (header), &bytes_written, NULL, &local_error);
     
-    if (*error) {
-        g_output_stream_close (stream, NULL, NULL);
+    if (local_error) {
+        g_propagate_error (error, local_error);
+        g_output_stream_close (G_OUTPUT_STREAM (stream), NULL, NULL);
         g_object_unref (stream);
         g_object_unref (export_file);
         return FALSE;
@@ -324,7 +330,7 @@ usb_tester_monitor_data_logger_export_to_csv (UsbTesterMonitorDataLogger *self,
     for (GList *item = self->entries; item; item = item->next) {
         UsbTesterMonitorLogEntry *entry = item->data;
         GDateTime *dt = g_date_time_new_from_unix_local (entry->timestamp / 1000000);
-        gchar *timestamp_str = g_date_time_format (dt, "%Y-%m-%d %H:%M:%S.%f");
+        gchar *timestamp_str = g_date_time_format (dt, "%Y-%m-%d %H:%M:%S");
         
         gchar *line = g_strdup_printf ("%s,%.3f,%.3f,%.3f\n",
                                        timestamp_str,
@@ -332,22 +338,23 @@ usb_tester_monitor_data_logger_export_to_csv (UsbTesterMonitorDataLogger *self,
                                        entry->current,
                                        entry->power);
         
-        g_output_stream_write_all (stream, line, strlen (line), &bytes_written, NULL, error);
+        g_output_stream_write_all (G_OUTPUT_STREAM (stream), line, strlen (line), &bytes_written, NULL, &local_error);
         
         g_free (line);
         g_free (timestamp_str);
         g_date_time_unref (dt);
         
-        if (*error) {
+        if (local_error) {
+            g_propagate_error (error, local_error);
             break;
         }
     }
     
-    g_output_stream_close (stream, NULL, NULL);
+    g_output_stream_close (G_OUTPUT_STREAM (stream), NULL, NULL);
     g_object_unref (stream);
     g_object_unref (export_file);
     
-    return !(*error);
+    return TRUE;
 }
 
 GList *

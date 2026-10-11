@@ -14,7 +14,6 @@ struct _UsbTesterMonitorChartView {
     /* Data storage */
     GArray *voltage_data;
     GArray *current_data;
-    GArray *timestamps;
     
     /* Display settings */
     guint time_range_seconds;
@@ -42,9 +41,6 @@ usb_tester_monitor_chart_view_finalize (GObject *object)
     }
     if (self->current_data) {
         g_array_unref (self->current_data);
-    }
-    if (self->timestamps) {
-        g_array_unref (self->timestamps);
     }
     
     G_OBJECT_CLASS (usb_tester_monitor_chart_view_parent_class)->finalize (object);
@@ -151,7 +147,6 @@ usb_tester_monitor_chart_view_init (UsbTesterMonitorChartView *self)
     /* Initialize data arrays */
     self->voltage_data = g_array_new (FALSE, FALSE, sizeof(gdouble));
     self->current_data = g_array_new (FALSE, FALSE, sizeof(gdouble));
-    self->timestamps = g_array_new (FALSE, FALSE, sizeof(guint64));
     
     /* Set default time range */
     self->time_range_seconds = 30;
@@ -187,11 +182,11 @@ usb_tester_monitor_chart_view_add_voltage_reading (UsbTesterMonitorChartView *se
     g_return_if_fail (USB_TESTER_MONITOR_IS_CHART_VIEW (self));
     
     /* Add new reading */
-    g_array_append_val (self->voltage_data, voltage);
-    g_array_append_val (self->timestamps, g_get_monotonic_time ());
+    gdouble val = voltage;
+    g_array_append_vals (self->voltage_data, &val, 1);
     
     /* Update range */
-    if (voltage < self->min_voltage || self->min_voltage == 0) {
+    if (voltage < self->min_voltage || self->voltage_data->len == 1) {
         self->min_voltage = voltage;
     }
     if (voltage > self->max_voltage) {
@@ -201,9 +196,6 @@ usb_tester_monitor_chart_view_add_voltage_reading (UsbTesterMonitorChartView *se
     /* Limit data points */
     while (self->voltage_data->len > MAX_DATA_POINTS) {
         g_array_remove_index (self->voltage_data, 0);
-        if (self->timestamps->len > 0) {
-            g_array_remove_index (self->timestamps, 0);
-        }
     }
     
     /* Request redraw */
@@ -217,10 +209,11 @@ usb_tester_monitor_chart_view_add_current_reading (UsbTesterMonitorChartView *se
     g_return_if_fail (USB_TESTER_MONITOR_IS_CHART_VIEW (self));
     
     /* Add new reading */
-    g_array_append_val (self->current_data, current);
+    gdouble val = current;
+    g_array_append_vals (self->current_data, &val, 1);
     
     /* Update range */
-    if (current < self->min_current || self->min_current == 0) {
+    if (current < self->min_current || self->current_data->len == 1) {
         self->min_current = current;
     }
     if (current > self->max_current) {
@@ -243,7 +236,6 @@ usb_tester_monitor_chart_view_clear (UsbTesterMonitorChartView *self)
     
     g_array_set_size (self->voltage_data, 0);
     g_array_set_size (self->current_data, 0);
-    g_array_set_size (self->timestamps, 0);
     
     self->min_voltage = 0.0;
     self->max_voltage = 5.0;

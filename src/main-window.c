@@ -14,7 +14,7 @@ struct _UsbTesterMonitorMainWindow {
     /* UI widgets */
     GtkBox *main_box;
     GtkHeaderBar *header_bar;
-    AdwLeaflet *leaflet;
+    GtkBox *header_box;
     GtkToggleButton *connect_button;
     GtkLabel *device_label;
     
@@ -37,9 +37,6 @@ struct _UsbTesterMonitorMainWindow {
     /* Device state */
     gboolean is_connected;
     gboolean is_streaming;
-    
-    /* Data callback */
-    guint data_handler_id;
 };
 
 G_DEFINE_FINAL_TYPE (UsbTesterMonitorMainWindow, usb_tester_monitor_main_window, ADW_TYPE_APPLICATION_WINDOW)
@@ -172,23 +169,24 @@ setup_header_bar (UsbTesterMonitorMainWindow *self)
     gtk_window_set_titlebar (GTK_WINDOW (self), GTK_WIDGET (self->header_bar));
     
     /* Title */
-    gtk_header_bar_set_title_widget (self->header_bar, gtk_label_new ("USB Tester Monitor"));
+    GtkLabel *title_label = GTK_LABEL (gtk_label_new ("USB Tester Monitor"));
+    gtk_header_bar_set_title_widget (self->header_bar, GTK_WIDGET (title_label));
     gtk_header_bar_set_show_title_buttons (self->header_bar, TRUE);
     
     /* Device selector and connect button */
-    GtkBox *header_box = GTK_BOX (gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6));
+    self->header_box = GTK_BOX (gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6));
     
     self->device_label = GTK_LABEL (gtk_label_new ("No device"));
-    gtk_box_append (header_box, GTK_WIDGET (self->device_label));
+    gtk_box_append (self->header_box, GTK_WIDGET (self->device_label));
     
     self->connect_button = GTK_TOGGLE_BUTTON (gtk_toggle_button_new ());
     gtk_button_set_label (GTK_BUTTON (self->connect_button), "Connect");
-    gtk_box_append (header_box, GTK_WIDGET (self->connect_button));
+    gtk_box_append (self->header_box, GTK_WIDGET (self->connect_button));
     
     g_signal_connect (self->connect_button, "toggled",
                       G_CALLBACK (on_connect_button_toggled), self);
     
-    gtk_header_bar_pack_end (self->header_bar, GTK_WIDGET (header_box));
+    gtk_header_bar_pack_end (self->header_bar, GTK_WIDGET (self->header_box));
 }
 
 static void
@@ -198,24 +196,15 @@ setup_main_content (UsbTesterMonitorMainWindow *self)
     self->main_box = GTK_BOX (gtk_box_new (GTK_ORIENTATION_VERTICAL, 0));
     gtk_window_set_child (GTK_WINDOW (self), GTK_WIDGET (self->main_box));
     
-    /* Leaflet for different views */
-    self->leaflet = ADW_LEAFLET (adw_leaflet_new ());
-    gtk_box_append (self->main_box, GTK_WIDGET (self->leaflet));
-    
     /* Create data display */
     self->data_display = usb_tester_monitor_data_display_new ();
+    gtk_box_append (self->main_box, GTK_WIDGET (self->data_display));
     
     /* Create chart view */
     self->chart_view = usb_tester_monitor_chart_view_new ();
     gtk_widget_set_hexpand (GTK_WIDGET (self->chart_view), TRUE);
     gtk_widget_set_vexpand (GTK_WIDGET (self->chart_view), TRUE);
-    
-    /* Add to leaflet */
-    adw_leaflet_append (self->leaflet, GTK_WIDGET (self->data_display));
-    adw_leaflet_append (self->leaflet, GTK_WIDGET (self->chart_view));
-    
-    /* Set initial page */
-    adw_leaflet_set_visible_child (self->leaflet, GTK_WIDGET (self->data_display));
+    gtk_box_append (self->main_box, GTK_WIDGET (self->chart_view));
 }
 
 static void
@@ -245,7 +234,6 @@ static void
 usb_tester_monitor_main_window_class_init (UsbTesterMonitorMainWindowClass *klass)
 {
     GObjectClass *object_class = G_OBJECT_CLASS (klass);
-    GtkWidgetClass *widget_class = GTK_WIDGET_CLASS (klass);
     
     object_class->dispose = usb_tester_monitor_main_window_dispose;
 }

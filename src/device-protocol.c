@@ -74,36 +74,15 @@ usb_tester_monitor_device_protocol_init (UsbTesterMonitorDeviceProtocol *self)
     self->source_id = 0;
 }
 
-static gboolean
-serial_read_callback (GIOChannel *source,
-                     GIOCondition condition,
-                     gpointer user_data)
-{
-    UsbTesterMonitorDeviceProtocol *self = user_data;
-    
-    if (condition & G_IO_IN) {
-        gchar buffer[256];
-        gsize bytes_read;
-        GIOStatus status;
-        
-        status = g_io_channel_read_chars (source, buffer, sizeof(buffer), &bytes_read, NULL);
-        if (status == G_IO_STATUS_NORMAL) {
-            /* Process received data */
-            /* This will be handled by device-specific implementations */
-        }
-    }
-    
-    return TRUE;
-}
-
 UsbTesterMonitorDeviceProtocol *
 usb_tester_monitor_device_protocol_new (const gchar *device_path,
                                        guint baud_rate)
 {
-    return g_object_new (USB_TESTER_MONITOR_TYPE_DEVICE_PROTOCOL,
-                        "device-path", device_path,
-                        "baud-rate", baud_rate,
-                        NULL);
+    UsbTesterMonitorDeviceProtocol *self;
+    self = g_object_new (USB_TESTER_MONITOR_TYPE_DEVICE_PROTOCOL, NULL);
+    self->device_path = g_strdup (device_path);
+    self->baud_rate = baud_rate;
+    return self;
 }
 
 UsbTesterMonitorDeviceProtocol *
@@ -112,14 +91,13 @@ usb_tester_monitor_device_protocol_new_for_type (const gchar *device_path,
 {
     UsbTesterMonitorDeviceProtocol *self;
     
-    self = g_object_new (USB_TESTER_MONITOR_TYPE_DEVICE_PROTOCOL,
-                        "device-path", device_path,
-                        NULL);
+    self = g_object_new (USB_TESTER_MONITOR_TYPE_DEVICE_PROTOCOL, NULL);
+    self->device_path = g_strdup (device_path);
+    self->device_type = g_strdup (device_type);
     
     /* Create device-specific implementation based on type */
     if (g_strcmp0 (device_type, "qianli-a3") == 0) {
         self->device_impl = g_object_new (USB_TESTER_MONITOR_TYPE_QIANLI_A3,
-                                         "device-path", device_path,
                                          NULL);
     }
     
@@ -148,18 +126,14 @@ usb_tester_monitor_device_protocol_connect (UsbTesterMonitorDeviceProtocol *self
     }
     
     /* Configure serial port */
-    GIOChannel *channel = self->channel;
-    g_io_channel_set_encoding (channel, NULL, &local_error);
+    g_io_channel_set_encoding (self->channel, NULL, &local_error);
     
     if (local_error) {
-        g_io_channel_unref (channel);
+        g_io_channel_unref (self->channel);
         self->channel = NULL;
         g_propagate_error (error, local_error);
         return FALSE;
     }
-    
-    /* Set up read watch */
-    self->source_id = g_io_add_watch (channel, G_IO_IN, serial_read_callback, self);
     
     self->state = USB_TESTER_MONITOR_PROTOCOL_STATE_CONNECTED;
     
@@ -194,11 +168,6 @@ usb_tester_monitor_device_protocol_start_streaming (UsbTesterMonitorDeviceProtoc
         return;
     }
     
-    /* Start device-specific streaming */
-    if (USB_TESTER_MONITOR_IS_QIANLI_A3 (self->device_impl)) {
-        /* Qianli A3 specific streaming start */
-    }
-    
     self->state = USB_TESTER_MONITOR_PROTOCOL_STATE_STREAMING;
 }
 
@@ -209,11 +178,6 @@ usb_tester_monitor_device_protocol_stop_streaming (UsbTesterMonitorDeviceProtoco
     
     if (self->state != USB_TESTER_MONITOR_PROTOCOL_STATE_STREAMING) {
         return;
-    }
-    
-    /* Stop device-specific streaming */
-    if (USB_TESTER_MONITOR_IS_QIANLI_A3 (self->device_impl)) {
-        /* Qianli A3 specific streaming stop */
     }
     
     self->state = USB_TESTER_MONITOR_PROTOCOL_STATE_CONNECTED;
