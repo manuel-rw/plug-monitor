@@ -24,10 +24,31 @@ static const char *app_css =
     "  opacity: 0.85;"
     "}"
     ".ripple-value { color: #35b042; font-weight: 700; }"
-    ".stats-card { font-size: 12px; }"
+    ".stats-card {"
+    "  font-size: 12px;"
+    "  background-color: @card_bg_color;"
+    "  border-radius: 12px;"
+    "  padding: 14px 18px;"
+    "}"
     ".stats-value { font-weight: 700; }"
-    ".device-panel { background-color: @sidebar_bg_color; }"
-    ".device-panel-row { padding: 8px 12px; }";
+
+    /* Temperature readout: monospace so digits do not shift the layout */
+    ".temp-value { font-family: monospace; }"
+
+    /* Left-side device panel: floating card in the GNOME 50 style */
+    ".device-panel {"
+    "  background-color: @sidebar_bg_color;"
+    "  border-radius: 12px;"
+    "  box-shadow: 0 1px 6px 1px rgba(0, 0, 0, 0.25);"
+    "}"
+    ".device-panel list {"
+    "  background-color: transparent;"
+    "}"
+    ".device-panel list row {"
+    "  border-radius: 8px;"
+    "  margin: 1px 2px;"
+    "  padding: 6px 4px;"
+    "}";
 
 static void
 usb_tester_monitor_application_startup (GApplication *app)

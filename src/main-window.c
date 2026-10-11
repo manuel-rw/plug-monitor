@@ -77,6 +77,7 @@ struct _UsbTesterMonitorMainWindow {
     GtkToggleButton *panel_button;
     GtkMenuButton *add_button;
     GtkToggleButton *connect_button;
+    GtkLabel *temp_dot;
     GtkLabel *temp_label;
     GtkButton *record_button;
     GtkPopover *add_popover;
@@ -169,16 +170,32 @@ static void
 temp_label_set_value (UsbTesterMonitorMainWindow *self,
                       gdouble temperature)
 {
+    /* Status colors: green below 35 degrees, yellow below 50, red above */
+    const gchar *dot_color = "#9a9996"; /* gray: no temperature available */
+
     if (isnan (temperature)) {
         gtk_label_set_text (self->temp_label, "\u2014 \u00b0C");
         gtk_widget_set_tooltip_text (GTK_WIDGET (self->temp_label),
                                      "Temperature (not available on this device)");
     } else {
+        if (temperature < 35.0) {
+            dot_color = "#35b042";
+        } else if (temperature < 50.0) {
+            dot_color = "#f5c211";
+        } else {
+            dot_color = "#ef2929";
+        }
+
         gchar *text = g_strdup_printf ("%.1f \u00b0C", temperature);
         gtk_label_set_text (self->temp_label, text);
         g_free (text);
-        gtk_widget_set_tooltip_text (GTK_WIDGET (self->temp_label), "Temperature");
+        gtk_widget_set_tooltip_text (GTK_WIDGET (self->temp_label),
+                                     "Temperature of the selected device");
     }
+
+    gchar *dot = g_strdup_printf ("<span foreground='%s'>\xe2\x97\x8f</span>", dot_color);
+    gtk_label_set_markup (self->temp_dot, dot);
+    g_free (dot);
 }
 
 /* ---------------------------------------------------------------- Recording */
@@ -901,12 +918,13 @@ add_device (UsbTesterMonitorMainWindow *self,
     page->page = GTK_WIDGET (page_box);
     gtk_stack_add_child (self->device_stack, page->page);
 
-    /* Row in the device panel */
+    /* Row in the device panel. The rounded hover/selection background is
+     * applied by the CSS rule on the row; keep the inner margin small. */
     GtkBox *row_box = GTK_BOX (gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 8));
-    gtk_widget_set_margin_start (GTK_WIDGET (row_box), 8);
-    gtk_widget_set_margin_end (GTK_WIDGET (row_box), 8);
-    gtk_widget_set_margin_top (GTK_WIDGET (row_box), 6);
-    gtk_widget_set_margin_bottom (GTK_WIDGET (row_box), 6);
+    gtk_widget_set_margin_start (GTK_WIDGET (row_box), 6);
+    gtk_widget_set_margin_end (GTK_WIDGET (row_box), 6);
+    gtk_widget_set_margin_top (GTK_WIDGET (row_box), 2);
+    gtk_widget_set_margin_bottom (GTK_WIDGET (row_box), 2);
 
     page->row_dot = GTK_LABEL (gtk_label_new (""));
     row_dot_set_connected (page->row_dot, FALSE);
@@ -1045,6 +1063,34 @@ on_panel_button_toggled (GtkToggleButton *button,
                                    gtk_toggle_button_get_active (button));
 }
 
+/* ------------------------------------------------------------------ About */
+
+static void
+on_info_button_clicked (GtkButton *button,
+                        gpointer user_data)
+{
+    (void) button;
+    UsbTesterMonitorMainWindow *self = USB_TESTER_MONITOR_MAIN_WINDOW (user_data);
+
+    const gchar *developers[] = { "Manuel https://github.com/manuel-rw", NULL };
+
+    AdwAboutDialog *about = ADW_ABOUT_DIALOG (adw_about_dialog_new ());
+    adw_about_dialog_set_application_name (about, "USB Tester Monitor");
+    adw_about_dialog_set_version (about, "0.1.0");
+    adw_about_dialog_set_developer_name (about, "Manuel");
+    adw_about_dialog_set_developers (about, developers);
+    adw_about_dialog_set_comments (about,
+                                   "Monitor USB power tester devices in real time.\n\n"
+                                   "Supported devices:\n"
+                                   "\xe2\x80\xa2 Qianli iBridge A3\n"
+                                   "\xe2\x80\xa2 Fnirsi FNB-48");
+    adw_about_dialog_set_website (about, "https://github.com/manuel-rw/plug-monitor");
+    adw_about_dialog_set_issue_url (about, "https://github.com/manuel-rw/plug-monitor/issues");
+    adw_about_dialog_set_license_type (about, GTK_LICENSE_GPL_3_0);
+
+    adw_dialog_present (ADW_DIALOG (about), GTK_WIDGET (self));
+}
+
 /* ------------------------------------------------------------------ Layout */
 
 static void
@@ -1074,13 +1120,27 @@ setup_header_bar (UsbTesterMonitorMainWindow *self,
                       G_CALLBACK (on_panel_button_toggled), self);
     gtk_header_bar_pack_start (header_bar, GTK_WIDGET (self->panel_button));
 
-    /* Top right: temperature, record, connect.
+    /* Top right: info, temperature, record, connect.
      * pack_end puts each new widget to the left of the previous one,
-     * so connect ends up on the far right. */
+     * so the info button ends up on the far right. */
+    GtkButton *info_button = GTK_BUTTON (gtk_button_new_from_icon_name ("dialog-information-symbolic"));
+    gtk_widget_set_tooltip_text (GTK_WIDGET (info_button), "About USB Tester Monitor");
+    g_signal_connect (info_button, "clicked",
+                      G_CALLBACK (on_info_button_clicked), self);
+    gtk_header_bar_pack_end (header_bar, GTK_WIDGET (info_button));
+
+    /* Temperature of the active device, with a colored status dot */
+    GtkBox *temp_box = GTK_BOX (gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6));
+    self->temp_dot = GTK_LABEL (gtk_label_new (""));
+    gtk_widget_add_css_class (GTK_WIDGET (self->temp_dot), "temp-dot");
     self->temp_label = GTK_LABEL (gtk_label_new ("\u2014 \u00b0C"));
+    gtk_widget_add_css_class (GTK_WIDGET (self->temp_label), "temp-value");
     gtk_widget_set_tooltip_text (GTK_WIDGET (self->temp_label),
                                  "Temperature (not available on this device)");
-    gtk_header_bar_pack_end (header_bar, GTK_WIDGET (self->temp_label));
+    temp_label_set_value (self, NAN);
+    gtk_box_append (temp_box, GTK_WIDGET (self->temp_dot));
+    gtk_box_append (temp_box, GTK_WIDGET (self->temp_label));
+    gtk_header_bar_pack_end (header_bar, GTK_WIDGET (temp_box));
 
     self->record_button = GTK_BUTTON (gtk_button_new_with_label ("Record"));
     gtk_widget_set_tooltip_text (GTK_WIDGET (self->record_button),
@@ -1118,10 +1178,10 @@ setup_main_content (UsbTesterMonitorMainWindow *self,
 
     GtkBox *panel_box = GTK_BOX (gtk_box_new (GTK_ORIENTATION_VERTICAL, 6));
     gtk_widget_add_css_class (GTK_WIDGET (panel_box), "device-panel");
-    gtk_widget_set_margin_top (GTK_WIDGET (panel_box), 6);
-    gtk_widget_set_margin_bottom (GTK_WIDGET (panel_box), 6);
-    gtk_widget_set_margin_start (GTK_WIDGET (panel_box), 6);
-    gtk_widget_set_margin_end (GTK_WIDGET (panel_box), 6);
+    gtk_widget_set_margin_top (GTK_WIDGET (panel_box), 8);
+    gtk_widget_set_margin_bottom (GTK_WIDGET (panel_box), 8);
+    gtk_widget_set_margin_start (GTK_WIDGET (panel_box), 8);
+    gtk_widget_set_margin_end (GTK_WIDGET (panel_box), 8);
     gtk_widget_set_size_request (GTK_WIDGET (panel_box), 260, -1);
 
     GtkLabel *panel_title = GTK_LABEL (gtk_label_new ("Devices"));

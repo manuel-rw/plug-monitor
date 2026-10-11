@@ -7,7 +7,7 @@ gtk_dep = dependency('gtk4', version: '>= 4.12.0')
 glib_dep = dependency('glib-2.0', version: '>= 2.78.0')
 gio_dep = dependency('gio-2.0', version: '>= 2.78.0')
 gobject_dep = dependency('gobject-2.0', version: '>= 2.78.0')
-libadwaita_dep = dependency('libadwaita-1', version: '>= 1.4.0')
+libadwaita_dep = dependency('libadwaita-1', version: '>= 1.6.0')
 
 # libm for round() used by the chart view
 math_dep = meson.get_compiler('c').find_library('m', required: false)

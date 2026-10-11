@@ -57,35 +57,34 @@ usb_tester_monitor_chart_view_finalize (GObject *object)
     G_OBJECT_CLASS (usb_tester_monitor_chart_view_parent_class)->finalize (object);
 }
 
+/* Zero-based display range: the lower bound is pinned to 0 and the upper
+ * bound starts at default_max and grows with the data. Used for physical
+ * quantities that never go negative (voltage, current, power). */
 static void
-recompute_range (GArray *data,
-                 gdouble *min_out,
-                 gdouble *max_out,
-                 gdouble fallback)
+recompute_range_zero_based (GArray *data,
+                            gdouble *min_out,
+                            gdouble *max_out,
+                            gdouble default_max)
 {
+    *min_out = 0.0;
+
     if (data->len == 0) {
-        *min_out = 0.0;
-        *max_out = fallback;
+        *max_out = default_max;
         return;
     }
 
-    gdouble lo = G_MAXDOUBLE;
     gdouble hi = -G_MAXDOUBLE;
-
     for (guint i = 0; i < data->len; i++) {
         gdouble value = g_array_index (data, gdouble, i);
-        if (value < lo) lo = value;
         if (value > hi) hi = value;
     }
 
-    if (hi - lo < 1e-6) {
-        /* Flat line: give it some vertical breathing room */
-        lo -= 0.01;
-        hi += 0.01;
+    if (hi < default_max) {
+        *max_out = default_max;
+    } else {
+        /* Headroom so the series does not touch the top of the chart */
+        *max_out = hi * 1.05;
     }
-
-    *min_out = lo;
-    *max_out = hi;
 }
 
 static void
@@ -301,7 +300,7 @@ usb_tester_monitor_chart_view_init (UsbTesterMonitorChartView *self)
     self->power_data = g_array_new (FALSE, FALSE, sizeof (gdouble));
 
     self->min_voltage = 0.0;
-    self->max_voltage = 5.0;
+    self->max_voltage = 6.0;
     self->min_current = 0.0;
     self->max_current = 2.0;
     self->min_power = 0.0;
@@ -370,10 +369,11 @@ usb_tester_monitor_chart_view_add_reading (UsbTesterMonitorChartView *self,
         g_array_remove_index (self->power_data, 0);
     }
 
-    /* Recompute display ranges */
-    recompute_range (self->voltage_data, &self->min_voltage, &self->max_voltage, 5.0);
-    recompute_range (self->current_data, &self->min_current, &self->max_current, 2.0);
-    recompute_range (self->power_data, &self->min_power, &self->max_power, 10.0);
+    /* Recompute display ranges: voltage axis is zero-based with a 6 V
+     * default maximum that grows with the data */
+    recompute_range_zero_based (self->voltage_data, &self->min_voltage, &self->max_voltage, 6.0);
+    recompute_range_zero_based (self->current_data, &self->min_current, &self->max_current, 2.0);
+    recompute_range_zero_based (self->power_data, &self->min_power, &self->max_power, 10.0);
 
     gtk_widget_queue_draw (GTK_WIDGET (self));
 }
@@ -388,7 +388,7 @@ usb_tester_monitor_chart_view_clear (UsbTesterMonitorChartView *self)
     g_array_set_size (self->power_data, 0);
 
     self->min_voltage = 0.0;
-    self->max_voltage = 5.0;
+    self->max_voltage = 6.0;
     self->min_current = 0.0;
     self->max_current = 2.0;
     self->min_power = 0.0;

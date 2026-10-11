@@ -68,9 +68,21 @@
     font-weight: bold;
 }
 
-/* Left-side device panel */
+/* Left-side device panel: floating card in the GNOME 50 style */
 .device-panel {
     background-color: @sidebar_bg_color;
+    border-radius: 12px;
+    box-shadow: 0 1px 6px 1px rgba(0, 0, 0, 0.25);
+}
+
+.device-panel list {
+    background-color: transparent;
+}
+
+.device-panel list row {
+    border-radius: 8px;
+    margin: 1px 2px;
+    padding: 6px 4px;
 }
 
 /* Chart area */
@@ -123,9 +135,8 @@
 
 /* Cards */
 .card {
-    background-color: @window_bg_color;
+    background-color: @card_bg_color;
     border-radius: 12px;
-    border: 1px solid @borders;
     padding: 16px;
     margin: 8px 0;
 }
@@ -150,6 +161,23 @@
 .stat-value {
     font-size: 18px;
     font-weight: bold;
+}
+
+/* Stats card (min/max/ripple readout) */
+.stats-card {
+    font-size: 12px;
+    background-color: @card_bg_color;
+    border-radius: 12px;
+    padding: 14px 18px;
+}
+
+.stats-value {
+    font-weight: bold;
+}
+
+/* Temperature readout: monospace so digits do not shift the layout */
+.temp-value {
+    font-family: monospace;
 }
 
 /* Min/Max values */
