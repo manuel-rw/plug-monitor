@@ -23,14 +23,14 @@ resource_files = files(
     'data/org.gnome.USBTesterMonitor.appdata.xml',
 )
 
-# GResource compilation
-gresource = import('gnome')
-gresource_data = gresource.compile_resources(
-    'usb-tester-monitor',
-    'data/org.gnome.USBTesterMonitor.gresource.xml',
-    source_dir: meson.current_source_dir(),
-    c_name: 'usb_tester_monitor'
-)
+# GResource compilation (commented out for now - UI files will be loaded at runtime)
+# gresource = import('gnome')
+# gresource_data = gresource.compile_resources(
+#     'usb-tester-monitor',
+#     'data/org.gnome.USBTesterMonitor.gresource.xml',
+#     source_dir: meson.current_source_dir(),
+#     c_name: 'usb_tester_monitor'
+# )
 
 # Executable
 executable('usb-tester-monitor',
