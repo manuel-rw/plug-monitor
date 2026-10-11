@@ -54,7 +54,6 @@ executable('usb-tester-monitor',
         'src/data-logger.h',
     ],
     dependencies: [gtk_dep, glib_dep, gio_dep, gobject_dep, libadwaita_dep],
-    resources: gresource_data,
     install: true
 )
 
