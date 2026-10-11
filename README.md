@@ -1,4 +1,7 @@
-# Plug
+<p align="center">
+<img src="data/icons/hicolor/scalable/apps/io.github.manuelrw.Plug.svg" />
+<h1 align="center">Plug</h1>
+</p>
 
 A GNOME desktop application for monitoring USB tester devices like the Qianli iBridge A3, built with GTK4 and Adwaita using the GNOME 50 design language.
 
@@ -6,21 +9,23 @@ A GNOME desktop application for monitoring USB tester devices like the Qianli iB
 ![GTK4](https://img.shields.io/badge/GTK-4.0-green?logo=gtk&logoColor=white)
 ![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-yellow)
 
+<img src="screenshots/main-window.png" height="240px" />
+<img src="screenshots/recording.png" height="240px" />
+
 ## Features
 
 - **Real-time Monitoring**: Live voltage, current, and power readings
 - **Multiple Device Support**: Extensible architecture for various USB tester devices
 - **Data Visualization**: Scrolling charts with historical data
 - **Data Logging**: CSV export with configurable logging intervals
-- **Modern UI**: GNOME 50 design with Adwaita widgets
 - **Statistics**: Min/Max tracking for voltage and current
 
 ## Supported Devices
 
-- **Qianli iBridge A3** - Fully supported with reverse-engineered protocol
-- **Fnirsi FNB-48** - Fully supported with reverse-engineered protocol
-- **Fnirsi C1**, **Fnirsi FNB-48S**, **Fnirsi FNB-58** - Same protocol family as the FNB-48; supported following the reference implementation (not tested against hardware here)
-- **POWER-Z KM002C / KM003C** - Supported following the reverse-engineered protocol documentation and the vendor HID demo (ADC polling: voltage, current, temperature, D+/D-)
+- **Qianli iBridge A3** - Fully supported
+- **Fnirsi FNB-48** - Fully supported
+- **Fnirsi C1**, **Fnirsi FNB-48S**, **Fnirsi FNB-58** Not tested
+- **POWER-Z KM002C / KM003C** Not tested
 
 ## Installation
 
@@ -111,12 +116,6 @@ The application automatically detects connected USB tester devices. Currently su
 - **Qianli iBridge A3**: Uses serial communication at 115200 baud
 - **Fnirsi FNB-48 / C1 / FNB-48S / FNB-58**: USB HID devices, accessed through their PC micro-USB port. All use the same report format; FNB-48 and C1 are polled with `AA 83`, FNB-48S and FNB-58 with `AA 82`
 - **POWER-Z KM002C / KM003C**: USB HID devices. Each `GET_DATA/ATT_ADC` request returns one ADC frame (bus voltage in uV, signed current in uA, temperature in 1/128 C, D+/D- in 0.1 mV)
-
-### Manual Device Path
-
-If your device is not auto-detected, you can specify the device path manually:
-- Linux: `/dev/ttyUSB0`, `/dev/ttyACM0`, `/dev/hidraw0`, etc.
-- Windows: `COM3`, `COM4`, etc.
 
 ### Fnirsi FNB-48 Permissions
 
