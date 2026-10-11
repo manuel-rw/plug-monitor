@@ -1,0 +1,237 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+    <requires lib="gtk" version="4.12.0"/>
+    <requires lib="adwaita" version="1.4.0"/>
+    
+    <template class="UsbTesterMonitorDataDisplay" parent="GtkBox">
+        <property name="orientation">vertical</property>
+        <property name="spacing">12</property>
+        <property name="margin-all">24</property>
+        
+        <child>
+            <object class="GtkGrid">
+                <property name="column-spacing">24</property>
+                <property name="row-spacing">12</property>
+                <property name="halign">center</property>
+                
+                <!-- Voltage -->
+                <child>
+                    <object class="GtkLabel">
+                        <property name="label">Voltage</property>
+                        <property name="halign">start</property>
+                        <property name="css-classes">h3</property>
+                    </object>
+                    <packing>
+                        <property name="left-attach">0</property>
+                        <property name="top-attach">0</property>
+                    </packing>
+                </child>
+                
+                <child>
+                    <object class="GtkBox">
+                        <property name="orientation">horizontal</property>
+                        <property name="spacing">0</property>
+                        
+                        <child>
+                            <object class="GtkLabel" id="voltage_label">
+                                <property name="label">0.000</property>
+                                <property name="css-classes">voltage-value</property>
+                            </object>
+                        </child>
+                        
+                        <child>
+                            <object class="GtkLabel" id="voltage_unit">
+                                <property name="label">V</property>
+                                <property name="css-classes">voltage-unit</property>
+                            </object>
+                        </child>
+                    </object>
+                    <packing>
+                        <property name="left-attach">0</property>
+                        <property name="top-attach">1</property>
+                    </packing>
+                </child>
+                
+                <!-- Current -->
+                <child>
+                    <object class="GtkLabel">
+                        <property name="label">Current</property>
+                        <property name="halign">start</property>
+                        <property name="css-classes">h3</property>
+                    </object>
+                    <packing>
+                        <property name="left-attach">1</property>
+                        <property name="top-attach">0</property>
+                    </packing>
+                </child>
+                
+                <child>
+                    <object class="GtkBox">
+                        <property name="orientation">horizontal</property>
+                        <property name="spacing">0</property>
+                        
+                        <child>
+                            <object class="GtkLabel" id="current_label">
+                                <property name="label">0.000</property>
+                                <property name="css-classes">current-value</property>
+                            </object>
+                        </child>
+                        
+                        <child>
+                            <object class="GtkLabel" id="current_unit">
+                                <property name="label">A</property>
+                                <property name="css-classes">current-unit</property>
+                            </object>
+                        </child>
+                    </object>
+                    <packing>
+                        <property name="left-attach">1</property>
+                        <property name="top-attach">1</property>
+                    </packing>
+                </child>
+                
+                <!-- Power -->
+                <child>
+                    <object class="GtkLabel">
+                        <property name="label">Power</property>
+                        <property name="halign">start</property>
+                        <property name="css-classes">h3</property>
+                    </object>
+                    <packing>
+                        <property name="left-attach">2</property>
+                        <property name="top-attach">0</property>
+                    </packing>
+                </child>
+                
+                <child>
+                    <object class="GtkBox">
+                        <property name="orientation">horizontal</property>
+                        <property name="spacing">0</property>
+                        
+                        <child>
+                            <object class="GtkLabel" id="power_label">
+                                <property name="label">0.000</property>
+                                <property name="css-classes">power-value</property>
+                            </object>
+                        </child>
+                        
+                        <child>
+                            <object class="GtkLabel" id="power_unit">
+                                <property name="label">W</property>
+                                <property name="css-classes">power-unit</property>
+                            </object>
+                        </child>
+                    </object>
+                    <packing>
+                        <property name="left-attach">2</property>
+                        <property name="top-attach">1</property>
+                    </packing>
+                </child>
+                
+                <!-- Status -->
+                <child>
+                    <object class="GtkLabel" id="status_label">
+                        <property name="label">Disconnected</property>
+                        <property name="halign">center</property>
+                        <property name="css-classes">status</property>
+                    </object>
+                    <packing>
+                        <property name="left-attach">0</property>
+                        <property name="top-attach">2</property>
+                        <property name="width">3</property>
+                    </packing>
+                </child>
+                
+                <!-- Statistics Title -->
+                <child>
+                    <object class="GtkLabel">
+                        <property name="label">Statistics</property>
+                        <property name="halign">start</property>
+                        <property name="css-classes">h4</property>
+                    </object>
+                    <packing>
+                        <property name="left-attach">0</property>
+                        <property name="top-attach">3</property>
+                        <property name="width">3</property>
+                    </packing>
+                </child>
+                
+                <!-- Voltage Stats -->
+                <child>
+                    <object class="GtkBox">
+                        <property name="orientation">horizontal</property>
+                        <property name="spacing">12</property>
+                        
+                        <child>
+                            <object class="GtkLabel">
+                                <property name="label">Min:</property>
+                            </object>
+                        </child>
+                        
+                        <child>
+                            <object class="GtkLabel" id="min_voltage_label">
+                                <property name="label">0.000 V</property>
+                                <property name="css-classes">min-value</property>
+                            </object>
+                        </child>
+                        
+                        <child>
+                            <object class="GtkLabel">
+                                <property name="label">Max:</property>
+                            </object>
+                        </child>
+                        
+                        <child>
+                            <object class="GtkLabel" id="max_voltage_label">
+                                <property name="label">0.000 V</property>
+                                <property name="css-classes">max-value</property>
+                            </object>
+                        </child>
+                    </object>
+                    <packing>
+                        <property name="left-attach">0</property>
+                        <property name="top-attach">4</property>
+                    </packing>
+                </child>
+                
+                <!-- Current Stats -->
+                <child>
+                    <object class="GtkBox">
+                        <property name="orientation">horizontal</property>
+                        <property name="spacing">12</property>
+                        
+                        <child>
+                            <object class="GtkLabel">
+                                <property name="label">Min:</property>
+                            </object>
+                        </child>
+                        
+                        <child>
+                            <object class="GtkLabel" id="min_current_label">
+                                <property name="label">0.000 A</property>
+                                <property name="css-classes">min-value</property>
+                            </object>
+                        </child>
+                        
+                        <child>
+                            <object class="GtkLabel">
+                                <property name="label">Max:</property>
+                            </object>
+                        </child>
+                        
+                        <child>
+                            <object class="GtkLabel" id="max_current_label">
+                                <property name="label">0.000 A</property>
+                                <property name="css-classes">max-value</property>
+                            </object>
+                        </child>
+                    </object>
+                    <packing>
+                        <property name="left-attach">1</property>
+                        <property name="top-attach">4</property>
+                    </packing>
+                </child>
+            </object>
+        </child>
+    </template>
+</interface>

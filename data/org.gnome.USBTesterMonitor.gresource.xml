@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gresources>
+    <gresource prefix="/org/gnome/USBTesterMonitor">
+        <file>ui/main-window.ui</file>
+        <file>ui/data-display.ui</file>
+        <file>ui/chart-view.ui</file>
+        <file>ui/device-dialog.ui</file>
+        <file>ui/preferences-dialog.ui</file>
+        <file>css/style.css</file>
+    </gresource>
+</gresources>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+    <requires lib="gtk" version="4.12.0"/>
+    <requires lib="adwaita" version="1.4.0"/>
+    
+    <template class="UsbTesterMonitorChartView" parent="GtkDrawingArea">
+        <property name="hexpand">True</property>
+        <property name="vexpand">True</property>
+        <property name="overflow">hidden</property>
+    </template>
+</interface>

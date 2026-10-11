@@ -1,0 +1,150 @@
+/* Main application styling */
+
+/* Background colors */
+background-color: @window_bg_color;
+color: @window_fg_color;
+
+/* Main display area */
+.main-display {
+    background-color: @window_bg_color;
+    border-radius: 12px;
+    padding: 24px;
+    margin: 12px;
+}
+
+/* Value labels */
+.value-label {
+    font-size: 48px;
+    font-weight: bold;
+    margin: 8px 0;
+}
+
+.unit-label {
+    font-size: 24px;
+    opacity: 0.7;
+    margin-left: 8px;
+}
+
+/* Voltage styling (green theme) */
+.voltage-value {
+    color: #35b042;
+}
+
+.voltage-unit {
+    color: #35b042;
+}
+
+/* Current styling (yellow/orange theme) */
+.current-value {
+    color: #f57900;
+}
+
+.current-unit {
+    color: #f57900;
+}
+
+/* Power styling (blue theme) */
+.power-value {
+    color: #3584e4;
+}
+
+.power-unit {
+    color: #3584e4;
+}
+
+/* Chart area */
+.chart-container {
+    background-color: @window_bg_color;
+    border-radius: 12px;
+    padding: 12px;
+    margin: 12px;
+    border: 1px solid @borders;
+}
+
+/* Status bar */
+.status-bar {
+    background-color: @window_bg_color;
+    border-top: 1px solid @borders;
+    padding: 8px 12px;
+    font-size: 12px;
+}
+
+/* Device status indicators */
+.device-connected {
+    color: #35b042;
+}
+
+.device-disconnected {
+    color: #ef2929;
+}
+
+.device-error {
+    color: #f57900;
+}
+
+/* Buttons */
+.flat-button {
+    background: none;
+    border: none;
+    padding: 8px 16px;
+    color: @window_fg_color;
+    transition: all 200ms ease;
+}
+
+.flat-button:hover {
+    background-color: alpha(@window_fg_color, 0.1);
+    border-radius: 8px;
+}
+
+.flat-button:active {
+    background-color: alpha(@window_fg_color, 0.2);
+}
+
+/* Cards */
+.card {
+    background-color: @window_bg_color;
+    border-radius: 12px;
+    border: 1px solid @borders;
+    padding: 16px;
+    margin: 8px 0;
+}
+
+/* Stats display */
+.stat-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+}
+
+.stat-item {
+    text-align: center;
+    padding: 12px;
+}
+
+.stat-label {
+    font-size: 12px;
+    opacity: 0.7;
+}
+
+.stat-value {
+    font-size: 18px;
+    font-weight: bold;
+}
+
+/* Min/Max values */
+.min-value {
+    color: #4e9a06;
+}
+
+.max-value {
+    color: #ef2929;
+}
+
+/* Tooltips */
+.tooltip {
+    background-color: @window_bg_color;
+    border: 1px solid @borders;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 12px;
+}

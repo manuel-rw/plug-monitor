@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=USB Tester Monitor
+Comment=Monitor USB tester devices like Qianli iBridge A3
+Exec=usb-tester-monitor
+Icon=org.gnome.USBTesterMonitor
+Terminal=false
+Categories=Utility;HardwareSettings;
+StartupWMClass=usb-tester-monitor
+Version=@version@

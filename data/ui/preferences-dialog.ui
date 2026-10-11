@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+    <requires lib="gtk" version="4.12.0"/>
+    <requires lib="adwaita" version="1.4.0"/>
+    
+    <template class="AdwPreferencesDialog" parent="AdwPreferencesDialog">
+        <property name="title">Preferences</property>
+        <property name="modal">True</property>
+        
+        <child type="content">
+            <object class="AdwPreferencesPage">
+                <property name="title">General</property>
+                <property name="icon-name">applications-system-symbolic</property>
+                
+                <child>
+                    <object class="AdwPreferencesGroup">
+                        <property name="title">Device Settings</property>
+                        
+                        <child>
+                            <object class="AdwSwitchRow">
+                                <property name="title">Auto-connect on startup</property>
+                                <property name="active">False</property>
+                            </object>
+                        </child>
+                        
+                        <child>
+                            <object class="AdwEntryRow">
+                                <property name="title">Default device</property>
+                                <property name="text">/dev/ttyUSB0</property>
+                            </object>
+                        </child>
+                        
+                        <child>
+                            <object class="AdwComboRow">
+                                <property name="title">Baud Rate</property>
+                                <property name="model">
+                                    <object class="GtkStringList">
+                                        <string>115200</string>
+                                        <string>57600</string>
+                                        <string>38400</string>
+                                        <string>19200</string>
+                                        <string>9600</string>
+                                    </object>
+                                </property>
+                                <property name="selected">0</property>
+                            </object>
+                        </child>
+                    </object>
+                </child>
+                
+                <child>
+                    <object class="AdwPreferencesGroup">
+                        <property name="title">Display Settings</property>
+                        
+                        <child>
+                            <object class="AdwSwitchRow">
+                                <property name="title">Show chart</property>
+                                <property name="active">True</property>
+                            </object>
+                        </child>
+                        
+                        <child>
+                            <object class="AdwSpinRow">
+                                <property name="title">Chart time range (seconds)</property>
+                                <property name="numeric">True</property>
+                                <property name="value">30</property>
+                                <property name="lower">1</property>
+                                <property name="upper">600</property>
+                                <property name="step">1</property>
+                            </object>
+                        </child>
+                        
+                        <child>
+                            <object class="AdwComboRow">
+                                <property name="title">Theme</property>
+                                <property name="model">
+                                    <object class="GtkStringList">
+                                        <string>System</string>
+                                        <string>Light</string>
+                                        <string>Dark</string>
+                                    </object>
+                                </property>
+                                <property name="selected">0</property>
+                            </object>
+                        </child>
+                    </object>
+                </child>
+            </object>
+            
+            <object class="AdwPreferencesPage">
+                <property name="title">Data Logging</property>
+                <property name="icon-name">document-save-symbolic</property>
+                
+                <child>
+                    <object class="AdwPreferencesGroup">
+                        <property name="title">Logging Settings</property>
+                        
+                        <child>
+                            <object class="AdwSwitchRow">
+                                <property name="title">Enable data logging</property>
+                                <property name="active">False</property>
+                            </object>
+                        </child>
+                        
+                        <child>
+                            <object class="AdwEntryRow">
+                                <property name="title">Log file path</property>
+                                <property name="text">~/usb-tester-logs</property>
+                            </object>
+                        </child>
+                        
+                        <child>
+                            <object class="AdwSpinRow">
+                                <property name="title">Log interval (ms)</property>
+                                <property name="numeric">True</property>
+                                <property name="value">100</property>
+                                <property name="lower">10</property>
+                                <property name="upper">10000</property>
+                                <property name="step">10</property>
+                            </object>
+                        </child>
+                    </object>
+                </child>
+            </object>
+        </child>
+    </template>
+</interface>

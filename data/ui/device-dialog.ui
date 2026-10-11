@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+    <requires lib="gtk" version="4.12.0"/>
+    <requires lib="adwaita" version="1.4.0"/>
+    
+    <template class="AdwDialog" parent="AdwDialog">
+        <property name="title">Select USB Tester Device</property>
+        <property name="modal">True</property>
+        
+        <child type="content">
+            <object class="GtkBox">
+                <property name="orientation">vertical</property>
+                <property name="spacing">12</property>
+                <property name="margin-all">12</property>
+                
+                <child>
+                    <object class="GtkLabel">
+                        <property name="label">Available USB Tester Devices</property>
+                        <property name="halign">start</property>
+                        <property name="css-classes">h3</property>
+                    </object>
+                </child>
+                
+                <child>
+                    <object class="GtkListBox" id="device_list">
+                        <property name="selection-mode">single</property>
+                        <property name="hexpand">True</property>
+                        <property name="vexpand">True</property>
+                        
+                        <child>
+                            <object class="GtkListBoxRow">
+                                <property name="selectable">True</property>
+                                
+                                <child>
+                                    <object class="GtkBox">
+                                        <property name="orientation">horizontal</property>
+                                        <property name="spacing">12</property>
+                                        <property name="margin-all">8</property>
+                                        
+                                        <child>
+                                            <object class="GtkImage">
+                                                <property name="icon-name">usb-symbolic</property>
+                                            </object>
+                                        </child>
+                                        
+                                        <child>
+                                            <object class="GtkBox">
+                                                <property name="orientation">vertical</property>
+                                                <property name="spacing">4</property>
+                                                
+                                                <child>
+                                                    <object class="GtkLabel" id="device_name">
+                                                        <property name="label">Qianli iBridge A3</property>
+                                                        <property name="halign">start</property>
+                                                    </object>
+                                                </child>
+                                                
+                                                <child>
+                                                    <object class="GtkLabel" id="device_path">
+                                                        <property name="label">/dev/ttyUSB0</property>
+                                                        <property name="halign">start</property>
+                                                        <property name="css-classes">dim-label</property>
+                                                    </object>
+                                                </child>
+                                            </object>
+                                        </child>
+                                        
+                                        <child>
+                                            <object class="GtkLabel" id="device_status">
+                                                <property name="label">Disconnected</property>
+                                                <property name="halign">end</property>
+                                            </object>
+                                        </child>
+                                    </object>
+                                </child>
+                            </object>
+                        </child>
+                    </object>
+                </child>
+            </object>
+        </child>
+        
+        <child type="action">
+            <object class="GtkButton">
+                <property name="label">Connect</property>
+                <property name="css-classes">suggested-action</property>
+            </object>
+        </child>
+        
+        <child type="action">
+            <object class="GtkButton">
+                <property name="label">Cancel</property>
+            </object>
+        </child>
+    </template>
+</interface>

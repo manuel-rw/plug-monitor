@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+    <requires lib="gtk" version="4.12.0"/>
+    <requires lib="adwaita" version="1.4.0"/>
+    
+    <template class="UsbTesterMonitorMainWindow" parent="AdwApplicationWindow">
+        <property name="title">USB Tester Monitor</property>
+        <property name="default-width">800</property>
+        <property name="default-height">600</property>
+        
+        <child type="titlebar">
+            <object class="GtkHeaderBar">
+                <property name="title-widget">
+                    <object class="GtkLabel">
+                        <property name="label">USB Tester Monitor</property>
+                    </object>
+                </property>
+                <property name="show-title-buttons">True</property>
+                
+                <child type="pack-end">
+                    <object class="GtkBox">
+                        <property name="spacing">6</property>
+                        
+                        <child>
+                            <object class="GtkLabel" id="device_label">
+                                <property name="label">No device</property>
+                            </object>
+                        </child>
+                        
+                        <child>
+                            <object class="GtkToggleButton" id="connect_button">
+                                <property name="label">Connect</property>
+                            </object>
+                        </child>
+                        
+                        <child>
+                            <object class="GtkMenuButton">
+                                <property name="icon-name">open-menu-symbolic</property>
+                                <property name="menu-model">
+                                    <object class="GioMenu">
+                                        <item>
+                                            <attribute name="label">Preferences</attribute>
+                                            <attribute name="action">app.preferences</attribute>
+                                        </item>
+                                        <item>
+                                            <attribute name="label">About</attribute>
+                                            <attribute name="action">app.about</attribute>
+                                        </item>
+                                        <item>
+                                            <attribute name="label">Quit</attribute>
+                                            <attribute name="action">app.quit</attribute>
+                                        </item>
+                                    </object>
+                                </property>
+                            </object>
+                        </child>
+                    </object>
+                </child>
+            </object>
+        </child>
+        
+        <child>
+            <object class="GtkBox" id="main_box">
+                <property name="orientation">vertical</property>
+                
+                <child>
+                    <object class="AdwLeaflet" id="leaflet">
+                        <property name="can-navigate-back">True</property>
+                        <property name="can-navigate-forward">True</property>
+                        
+                        <child>
+                            <object class="UsbTesterMonitorDataDisplay" id="data_display"/>
+                        </child>
+                        
+                        <child>
+                            <object class="UsbTesterMonitorChartView" id="chart_view">
+                                <property name="hexpand">True</property>
+                                <property name="vexpand">True</property>
+                            </object>
+                        </child>
+                    </object>
+                </child>
+                
+                <child>
+                    <object class="GtkStatusBar" id="status_bar">
+                        <property name="margin-top">12</property>
+                        <property name="margin-bottom">12</property>
+                        <property name="margin-start">12</property>
+                        <property name="margin-end">12</property>
+                    </object>
+                </child>
+            </object>
+        </child>
+    </template>
+</interface>
