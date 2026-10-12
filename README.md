@@ -12,6 +12,9 @@ A GNOME desktop application for monitoring USB tester devices like the Qianli iB
 <img src="screenshots/main-window.png" height="240px" />
 <img src="screenshots/recording.png" height="240px" />
 
+> [!NOTE]
+> This application is partially AI generated using Mistral AI. I am no expert in C. Please decide yourselves if you wish to use this project or not.
+
 ## Features
 
 - **Real-time Monitoring**: Live voltage, current, and power readings
