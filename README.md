@@ -27,6 +27,19 @@ A GNOME desktop application for monitoring USB tester devices like the Qianli iB
 - **Fnirsi C1**, **Fnirsi FNB-48S**, **Fnirsi FNB-58** Not tested
 - **POWER-Z KM002C / KM003C** Not tested
 
+| Device | Voltage | Current | Power | Ripple | D+/D- | Temperature | QC |
+| ------ | ------- | ------- | ----- | ------ | ----- | ----------- | -- |
+| Qianli iBridge A3 | ✅ | ✅ | ✅ | ✅  | ❌ | ❌ | ❌ |
+| FNIRSI FNB-48 | ✅ | ✅ | ✅ | ✅  | ✅ | ✅ | ❌ |
+| FNIRSI FNB-48S | ✅ | ✅ | ✅ | ✅  | ⚠️ Untested | ⚠️ Untested | ❌ |
+| FNIRSI C1 | ✅ | ✅ | ✅ | ✅  | ⚠️ Untested | ⚠️ Untested | ❌ |
+| FNIRSI FNB-58 | ✅ | ✅ | ✅ | ✅  | ⚠️ Untested | ⚠️ Untested | ❌ |
+| POWER-Z KM002C | ✅ | ✅ | ✅ | ✅  | ❌ | ❌ | ❌ |
+| POWER-Z KM003C | ✅ | ✅ | ✅ | ✅  | ❌ | ❌ | ❌ |
+
+> [!NOTE]
+> You can contribute more devices via a PR. Device requests are not accepted because I don't want to buy any more USB testers. If you can provide a fully reverse engineered sample of the serial data, I can implement it for you.
+
 ## Installation
 
 ### Dependencies
